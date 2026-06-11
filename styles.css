@@ -78,6 +78,17 @@ a{color:inherit}
 .nudge.tap{cursor:pointer}
 a.nudge{text-decoration:none}
 .nudge .nchev{margin-left:auto; font-size:20px; line-height:1; color:inherit; opacity:.45; align-self:center}
+.nudge.shiftb{background:#F3EFF6; border-color:#E4DAEC}
+.nudge.shiftb p{color:#5d4a6b}
+.linkbtn{margin-left:auto; background:none; border:none; color:var(--purple); font-weight:800; font-size:13px; cursor:pointer; align-self:center; font-family:inherit; flex:none}
+
+/* ---- Finished-early sheet ------------------------------------------- */
+.found{font-size:14.5px; color:var(--ink-2); margin:4px 0 12px; line-height:1.55}
+.found b{color:var(--ink)}
+.sug{display:flex; gap:11px; align-items:flex-start; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin:8px 0; font-size:14px; line-height:1.45}
+.sug span{font-size:17px; line-height:1.2}
+.sug.tap{cursor:pointer; border-color:#E4DAEC; background:#FBFAFC}
+.sug .nchev{margin-left:auto; font-size:18px; color:var(--purple); opacity:.6; align-self:center}
 
 /* ---- Right now ------------------------------------------------------ */
 .now{background:var(--surface); border:1.5px solid var(--purple); border-left:5px solid var(--purple);

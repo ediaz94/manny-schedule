@@ -108,7 +108,76 @@ window.Act = (function () {
     closeSheet() { App.closeSheets(); },
 
     /* Today */
-    toggleBlock(el) { Store.toggleBlock(T(), el.dataset.k); App.render(); },
+    toggleBlock(el) {
+      const key = el.dataset.k;
+      const wasDone = !!Store.day(T()).completed[key];
+      Store.toggleBlock(T(), key);
+      App.render();
+      if (!wasDone) Act.maybeEarlyFinish(key); // only when marking done, not undoing
+    },
+    /* Finished a block early? Offer found-time ideas + shifting the rest of
+       the day earlier. Fires once per block per day. */
+    maybeEarlyFinish(key) {
+      if (!/^\d\d:\d\d$/.test(key)) return; // ignore checklist pseudo-keys (prep0 etc.)
+      const dt = DATA.days.find((d) => d.dow === DateU.dow(T()));
+      if (!dt) return;
+      const idx = dt.blocks.findIndex((b) => b.s === key);
+      if (idx < 0) return;
+      const b = dt.blocks[idx];
+      const okTypes = ["meal", "workout", "shower", "meal-prep", "wedding-checkin", "wedding-block", "flex", "mass", "review", "fintech", "work"];
+      if (okTypes.indexOf(b.type) < 0) return;
+      const nowM = DateU.nowMinutes();
+      const found = DateU.toMin(b.e) - nowM;
+      if (found < 15) return;
+      const dl = Store.day(T());
+      dl.earlyOffered = dl.earlyOffered || {};
+      if (dl.earlyOffered[key]) return;
+      dl.earlyOffered[key] = true; Store.save();
+
+      const later = dt.blocks.slice(idx + 1).filter((x) => !dl.completed[x.s]);
+      const canShift = later.length > 0 && !dl.shift;
+      const shiftMin = Math.min(60, Math.floor(found / 5) * 5);
+      const evening = DateU.toMin(b.s) >= 17 * 60;
+      const lastB = dt.blocks[dt.blocks.length - 1];
+      const newLights = DateU.time12(DateU.fromMin(DateU.toMin(lastB.s) - shiftMin));
+
+      // found-time ideas, tuned to the moment
+      const dow = DateU.dow(T());
+      const sugs = [];
+      if (evening) {
+        sugs.push({ i: "🍽️", t: "Knock out the dishes while the kitchen's still warm" });
+        sugs.push({ i: "🧺", t: "Start a load of laundry — it runs while you relax" });
+        if (dow >= 0 && dow <= 4) sugs.push({ i: "🥗", t: "Pack tomorrow's lunch now, skip the morning scramble" });
+        const tmrw = DATA.days.find((d) => d.dow === (dow + 1) % 7);
+        if (tmrw && tmrw.workoutType) sugs.push({ i: "🎒", t: "Set the gym bag by the door for tomorrow" });
+      } else {
+        sugs.push({ i: "🧺", t: "Sneak in a load of laundry" });
+        sugs.push({ i: "🚶", t: "10-minute walk — free steps, clears the head" });
+      }
+      const open = Store.get().weddingTasks.filter((t) => t.status !== "done");
+      const pr = { high: 0, medium: 1, low: 2 };
+      open.sort((a, c) => pr[a.priority] - pr[c.priority]);
+      const rows = sugs.slice(0, 3).map((s) =>
+        '<div class="sug"><span>' + s.i + '</span><div>' + UI.esc(s.t) + '</div></div>').join("") +
+        (open.length ? '<div class="sug tap" data-act="goWedding"><span>💍</span><div>Wedding quick win: ' + UI.esc(open[0].title) + '</div><span class="nchev">›</span></div>' : "");
+
+      UI.sheet("Finished early 🎉",
+        '<p class="found">You wrapped up <b>' + UI.esc(b.title) + '</b> about <b>' + found + ' minutes</b> ahead of schedule. A few ways to spend it:</p>' +
+        rows +
+        (canShift ? '<button class="btn btn-primary big" data-act="shiftDay" data-from="' + b.s + '" data-min="' + shiftMin + '">⏩ Pull the rest of ' + (evening ? "tonight" : "today") + ' ' + shiftMin + ' min earlier' + (evening ? " — lights out " + newLights : "") + '</button>' : "") +
+        '<button class="btn btn-ghost big" data-act="closeSheet">Keep the schedule as-is</button>');
+    },
+    shiftDay(el) {
+      const dl = Store.day(T());
+      dl.shift = { from: el.dataset.from, min: +el.dataset.min };
+      Store.save(); App.closeSheets(); App.render();
+      UI.toast("Rest of today moved " + el.dataset.min + " min earlier ⏩");
+    },
+    unshift() {
+      const dl = Store.day(T()); delete dl.shift; Store.save(); App.render();
+      UI.toast("Back to the planned times");
+    },
+    goWedding() { App.closeSheets(); location.hash = "#/wedding"; },
     water(el) { Store.addWater(T(), parseInt(el.dataset.oz, 10)); App.render(); },
     prayer(el) { const w = el.dataset.which; const dl = Store.day(T()); Store.setPrayer(T(), w, !(w === "morning" ? dl.prayerM : dl.prayerE)); App.render(); },
     mass(el) { Store.setMass(el.dataset.date, !Store.massFor(el.dataset.date)); App.render(); UI.toast("Logged 🙏"); },

@@ -37,7 +37,8 @@ window.DateU = (function () {
   }
   function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
   function toMin(hhmm) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; }
-  return { iso, parse, today, dow, addDays, daysBetween, monday, fmt, fmtLong, fmtShort, time12, time12c, nowMinutes, toMin };
+  function fromMin(m) { m = Math.max(0, m); return pad(Math.floor(m / 60)) + ":" + pad(m % 60); }
+  return { iso, parse, today, dow, addDays, daysBetween, monday, fmt, fmtLong, fmtShort, time12, time12c, nowMinutes, toMin, fromMin };
 })();
 
 /* ---------- Phase logic ----------------------------------------------- */

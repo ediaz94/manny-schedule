@@ -28,6 +28,12 @@ window.Screens = window.Screens || {};
     const prof = DATA.profile;
     const dinnerIdx = Store.get().dinnerPlan[DateU.dow(date)];
     const todaysDinner = dinnerIdx != null ? DATA.dinners[dinnerIdx] : null;
+    // Active "pull the evening earlier" shift: display-only — completion keys
+    // stay tied to the template times.
+    const sh = dl.shift || null;
+    const eff = dt.blocks.map((b) => (sh && b.s > sh.from)
+      ? { s: DateU.fromMin(DateU.toMin(b.s) - sh.min), e: DateU.fromMin(DateU.toMin(b.e) - sh.min) }
+      : { s: b.s, e: b.e });
 
     let phaseCard;
     if (prog) {
@@ -52,7 +58,7 @@ window.Screens = window.Screens || {};
     const nowM = DateU.nowMinutes();
     let curIdx = -1, nextIdx = -1;
     dt.blocks.forEach((b, i) => {
-      const s = DateU.toMin(b.s), e = DateU.toMin(b.e);
+      const s = DateU.toMin(eff[i].s), e = DateU.toMin(eff[i].e);
       if (nowM >= s && nowM < e && curIdx < 0) curIdx = i;
       if (nowM < s && nextIdx < 0) nextIdx = i;
     });
@@ -64,7 +70,7 @@ window.Screens = window.Screens || {};
         '<div class="now">' +
           '<span class="kicker"><span class="dot"></span> ' + (curIdx >= 0 ? "Right now" : "Up next") + '</span>' +
           '<h2>' + blockEmoji(b) + ' ' + esc(b.title) + '</h2>' +
-          '<div class="now-time tabnum">' + DateU.time12(b.s) + ' – ' + DateU.time12(b.e) + (durTxt(b) ? ' · ' + durTxt(b) : '') + '</div>' +
+          '<div class="now-time tabnum">' + DateU.time12(eff[heroIdx].s) + ' – ' + DateU.time12(eff[heroIdx].e) + (durTxt(b) ? ' · ' + durTxt(b) : '') + '</div>' +
           '<p>' + esc(b.desc || "") + (b.meal === "dinner" && todaysDinner ? ' <b>Tonight: ' + esc(todaysDinner.name) + '.</b>' : "") + '</p>' +
           '<div class="cta">' + heroCTA(b, date) + '</div>' +
         '</div>';
@@ -79,7 +85,7 @@ window.Screens = window.Screens || {};
       const sub = isDinner ? esc(todaysDinner.name) + ' · tap for recipe' : esc(shortDesc(b));
       return '<details class="row ' + cls + '">' +
         '<summary>' +
-          '<div class="time tabnum">' + DateU.time12c(b.s) + '<span class="te">' + DateU.time12c(b.e) + '</span></div>' +
+          '<div class="time tabnum">' + DateU.time12c(eff[i].s) + '<span class="te">' + DateU.time12c(eff[i].e) + '</span></div>' +
           '<div class="rail"><span class="node ' + (done ? "done" : cur ? "cur" : "") + '"></span></div>' +
           '<div class="card">' +
             '<span class="ico">' + blockEmoji(b) + '</span>' +
@@ -91,7 +97,7 @@ window.Screens = window.Screens || {};
           '</div>' +
         '</summary>' +
         '<div class="row-x">' +
-          '<p class="rngline tabnum">🕐 ' + DateU.time12(b.s) + ' – ' + DateU.time12(b.e) + (durTxt(b) ? ' &nbsp;·&nbsp; ' + durTxt(b) : '') + '</p>' +
+          '<p class="rngline tabnum">🕐 ' + DateU.time12(eff[i].s) + ' – ' + DateU.time12(eff[i].e) + (durTxt(b) ? ' &nbsp;·&nbsp; ' + durTxt(b) : '') + '</p>' +
           (b.desc ? '<p>' + esc(b.desc) + '</p>' : "") +
           '<div class="row-btns">' +
             (done ? '<button class="btn btn-ghost" data-act="toggleBlock" data-k="' + esc(b.s) + '">Undo</button>'
@@ -124,6 +130,12 @@ window.Screens = window.Screens || {};
         '<div class="stat"><b>' + (dt.workoutType ? '🏋️' : '🌙') + '</b><span>' + (dt.workoutType ? 'workout day' : 'rest day') + '</span></div>' +
       '</div>';
 
+    const shiftBanner = sh
+      ? '<div class="nudge shiftb"><span>⏩</span><p>Running ' + sh.min + ' min ahead — lights out around ' +
+        DateU.time12(eff[dt.blocks.length - 1].s) + '. Extra sleep, banked.</p>' +
+        '<button class="linkbtn" data-act="unshift">Undo</button></div>'
+      : "";
+
     const nds = nudges(date, dt, dl, dinnerIdx);
     const nudgeHtml = nds.map((n) => {
       const tap = n.act || n.href;
@@ -136,7 +148,7 @@ window.Screens = window.Screens || {};
 
     return '<div class="screen">' +
       topbar("Today", '<a class="datepill" href="#/review">' + esc(DateU.fmt(date)) + '</a>') +
-      '<div class="wrap">' + phaseCard + nudgeHtml + hero +
+      '<div class="wrap">' + phaseCard + shiftBanner + nudgeHtml + hero +
         '<div class="sec-h">Today\'s schedule</div><div class="tl">' + rows + '</div>' +
         water + stats +
       '</div></div>';
