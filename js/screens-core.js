@@ -64,7 +64,7 @@ window.Screens = window.Screens || {};
         '<div class="now">' +
           '<span class="kicker"><span class="dot"></span> ' + (curIdx >= 0 ? "Right now" : "Up next") + '</span>' +
           '<h2>' + blockEmoji(b) + ' ' + esc(b.title) + '</h2>' +
-          '<div class="now-time tabnum">' + DateU.time12(b.s) + ' – ' + DateU.time12(b.e) + '</div>' +
+          '<div class="now-time tabnum">' + DateU.time12(b.s) + ' – ' + DateU.time12(b.e) + (durTxt(b) ? ' · ' + durTxt(b) : '') + '</div>' +
           '<p>' + esc(b.desc || "") + (b.meal === "dinner" && todaysDinner ? ' <b>Tonight: ' + esc(todaysDinner.name) + '.</b>' : "") + '</p>' +
           '<div class="cta">' + heroCTA(b, date) + '</div>' +
         '</div>';
@@ -79,7 +79,7 @@ window.Screens = window.Screens || {};
       const sub = isDinner ? esc(todaysDinner.name) + ' · tap for recipe' : esc(shortDesc(b));
       return '<details class="row ' + cls + '">' +
         '<summary>' +
-          '<div class="time tabnum">' + DateU.time12c(b.s) + '</div>' +
+          '<div class="time tabnum">' + DateU.time12c(b.s) + '<span class="te">' + DateU.time12c(b.e) + '</span></div>' +
           '<div class="rail"><span class="node ' + (done ? "done" : cur ? "cur" : "") + '"></span></div>' +
           '<div class="card">' +
             '<span class="ico">' + blockEmoji(b) + '</span>' +
@@ -91,6 +91,7 @@ window.Screens = window.Screens || {};
           '</div>' +
         '</summary>' +
         '<div class="row-x">' +
+          '<p class="rngline tabnum">🕐 ' + DateU.time12(b.s) + ' – ' + DateU.time12(b.e) + (durTxt(b) ? ' &nbsp;·&nbsp; ' + durTxt(b) : '') + '</p>' +
           (b.desc ? '<p>' + esc(b.desc) + '</p>' : "") +
           '<div class="row-btns">' +
             (done ? '<button class="btn btn-ghost" data-act="toggleBlock" data-k="' + esc(b.s) + '">Undo</button>'
@@ -132,6 +133,14 @@ window.Screens = window.Screens || {};
   };
 
   function shortDesc(b) { const d = b.desc || ""; return d.length > 64 ? d.slice(0, 62) + "…" : d; }
+
+  // "75 min" → "1 hr 15 min"; hidden for tiny admin blocks (< 10 min)
+  function durTxt(b) {
+    const m = DateU.toMin(b.e) - DateU.toMin(b.s);
+    if (m < 10) return "";
+    const h = Math.floor(m / 60), r = m % 60;
+    return h ? h + " hr" + (r ? " " + r + " min" : "") : m + " min";
+  }
 
   function heroCTA(b, date) {
     const done = !!Store.day(date).completed[b.s];

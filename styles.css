@@ -86,6 +86,9 @@ details.row{margin:0}
 details.row summary{display:grid; grid-template-columns:50px 26px 1fr; align-items:start; cursor:pointer; list-style:none}
 details.row summary::-webkit-details-marker{display:none}
 .row .time{font-size:12px; font-weight:600; color:var(--ink-2); text-align:right; padding:14px 8px 0 0; white-space:nowrap}
+.row .time .te{display:block; font-size:10px; font-weight:600; color:#B3AC9F; margin-top:2px}
+.row .time .te::before{content:"– "}
+.row-x .rngline{font-size:13px; font-weight:700; color:var(--sage); margin:2px 0 6px}
 .row .rail{display:flex; justify-content:center; padding-top:13px}
 .node{width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid var(--rail); position:relative; z-index:2}
 .node.done{background:var(--success); border-color:var(--success)}
