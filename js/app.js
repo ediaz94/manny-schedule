@@ -234,9 +234,9 @@ window.Act = (function () {
     saveReview(el) {
       const d = el.dataset;
       Store.addReview({
-        week: d.week, workouts: +d.workouts, lunches: +d.lunches, fintech: d.fintech,
+        week: d.week, workouts: +d.workouts, lunches: +d.lunches, prayer: +d.prayer,
         reflection_workouts: val("reflection_workouts"), reflection_lunch: val("reflection_lunch"),
-        reflection_fintech: val("reflection_fintech"), reflection_sleep: val("reflection_sleep"),
+        reflection_wedding: val("reflection_wedding"), reflection_sleep: val("reflection_sleep"),
         reflection_next_week_focus: val("reflection_next_week_focus"), completedAt: new Date().toISOString()
       });
       App.render(); UI.toast("Review saved 🙏");

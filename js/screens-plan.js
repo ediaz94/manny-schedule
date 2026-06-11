@@ -126,7 +126,8 @@ window.Screens = window.Screens || {};
       return '<details class="msg"><summary>' + esc(modName[mod] || mod) + ' <span class="muted">' + dn + '/' + groups[mod].length + '</span></summary>' + items + '</details>';
     }).join("");
 
-    return '<div class="screen">' + subbar("Fintech Study", "#/stats") + '<div class="wrap">' +
+    return '<div class="screen">' + subbar("Fintech Study", "#/more") + '<div class="wrap">' +
+      '<div class="guide" style="margin-bottom:12px">⏸ Paused while the wedding takes priority. Your milestones are saved — pick this back up after Nov 9 (or log the odd session if you feel like it).</div>' +
       '<button class="btn btn-primary big" data-act="logFintech">⏱ Log a study session</button>' +
       '<div class="fin-top">' +
         UI.ring(hrs / target, hrs.toFixed(1) + "h", "this week") +
@@ -146,29 +147,30 @@ window.Screens = window.Screens || {};
     const workouts = st.workoutLogs.filter((l) => l.completedAt && l.date >= wk && l.date <= end).length;
     let lunches = 0;
     for (let i = 0; i < 5; i++) { const d = DateU.addDays(wk, i); const ml = st.mealLogs[d]; if (ml && ml.lunch === "eaten") lunches++; }
-    const finHrs = Store.fintechHoursWeek(wk).toFixed(1);
+    let prayerDays = 0;
+    for (let i = 0; i < 7; i++) { const d = DateU.addDays(wk, i); const pl = st.dayLogs[d]; if (pl && (pl.prayerM || pl.prayerE)) prayerDays++; }
     const dn = Store.dateNightsInMonth(DateU.today().slice(0, 7));
     const saved = Store.reviewFor(wk) || {};
     const ta = (id, label, ph) => '<label class="rfield"><span>' + label + '</span><textarea id="' + id + '" rows="2" placeholder="' + ph + '">' + esc(saved[id] || "") + '</textarea></label>';
 
     const past = st.reviews.slice().sort((a, b) => a.week < b.week ? 1 : -1).slice(0, 6).map((r) =>
-      '<div class="wrow"><span class="b">Week of ' + DateU.fmtShort(r.week) + '</span><span class="muted">' + r.workouts + ' workouts · ' + r.fintech + 'h</span></div>').join("");
+      '<div class="wrow"><span class="b">Week of ' + DateU.fmtShort(r.week) + '</span><span class="muted">' + r.workouts + ' workouts · ' + (r.prayer != null ? r.prayer + ' prayer days' : (r.fintech || 0) + 'h') + '</span></div>').join("");
 
     return '<div class="screen">' + subbar("Weekly Review", "#/stats") + '<div class="wrap">' +
       '<p class="muted intro">Sunday, 5 minutes, be honest. Week of ' + DateU.fmtShort(wk) + '.</p>' +
       '<div class="stats4">' +
         '<div class="stat"><b class="tabnum">' + workouts + '/6</b><span>workouts</span></div>' +
         '<div class="stat"><b class="tabnum">' + lunches + '/5</b><span>lunches</span></div>' +
-        '<div class="stat"><b class="tabnum">' + finHrs + '</b><span>fintech hrs</span></div>' +
+        '<div class="stat"><b class="tabnum">' + prayerDays + '/7</b><span>prayer days</span></div>' +
         '<div class="stat"><b class="tabnum">' + dn + '</b><span>date nights</span></div>' +
       '</div>' +
       '<div class="card2"><div class="card2-h">Reflection</div>' +
         ta("reflection_workouts", "Did I hit my workouts? If not, why?", "…") +
         ta("reflection_lunch", "Did I pack lunch all 5 days?", "…") +
-        ta("reflection_fintech", "Did fintech happen? How many hours?", "…") +
+        ta("reflection_wedding", "Did the wedding move forward this week? What's next?", "…") +
         ta("reflection_sleep", "How did I sleep on average?", "…") +
         ta("reflection_next_week_focus", "The one biggest pull on next week's calendar?", "…") +
-        '<button class="btn btn-primary big" data-act="saveReview" data-week="' + wk + '" data-workouts="' + workouts + '" data-lunches="' + lunches + '" data-fintech="' + finHrs + '">Save review</button>' +
+        '<button class="btn btn-primary big" data-act="saveReview" data-week="' + wk + '" data-workouts="' + workouts + '" data-lunches="' + lunches + '" data-prayer="' + prayerDays + '">Save review</button>' +
       '</div>' +
       (past ? '<div class="sec-h">Past reviews</div>' + past : "") +
       '</div></div>';
@@ -180,17 +182,16 @@ window.Screens = window.Screens || {};
     const w = Store.latestWeight();
     const wkMon = DateU.monday(DateU.today());
     const workouts = st.workoutLogs.filter((l) => l.completedAt && l.date >= wkMon).length;
-    const finHrs = Store.fintechHoursWeek(wkMon).toFixed(1);
+    const tasksOpen = st.weddingTasks.filter((t) => t.status !== "done").length;
     return '<div class="screen">' + topbar("Stats", "") + '<div class="wrap">' +
       '<div class="stats">' +
         '<div class="stat"><b class="tabnum">' + (w ? w.lbs : st.profile.startWeight) + '</b><span>weight</span></div>' +
         '<div class="stat"><b class="tabnum">' + workouts + '</b><span>workouts/wk</span></div>' +
-        '<div class="stat"><b class="tabnum">' + finHrs + '</b><span>fintech hrs</span></div>' +
+        '<div class="stat"><b class="tabnum">' + tasksOpen + '</b><span>wedding tasks</span></div>' +
       '</div>' +
       '<div class="menu">' +
         '<a class="mrow" href="#/weight"><span>⚖️ Weight &amp; body</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/workout/progress"><span>🏋️ Workout progress</span><span class="chev">›</span></a>' +
-        '<a class="mrow" href="#/fintech"><span>📈 Fintech progress</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/review"><span>📊 Weekly review</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/workout/history"><span>📜 Workout history</span><span class="chev">›</span></a>' +
       '</div></div></div>';
@@ -204,7 +205,7 @@ window.Screens = window.Screens || {};
         '<a class="mrow" href="#/meals/grocery"><span>🛒 Grocery list</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/meals/prep"><span>🧑‍🍳 Meal prep</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/weight"><span>⚖️ Weight</span><span class="chev">›</span></a>' +
-        '<a class="mrow" href="#/fintech"><span>📈 Fintech study</span><span class="chev">›</span></a>' +
+        '<a class="mrow" href="#/fintech"><span>📈 Fintech study <small class="muted">(paused)</small></span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/faith"><span>🙏 Faith &amp; prayer</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/wedding/vendors"><span>🤝 Vendors</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/wedding/memoriam"><span>🕯️ In Memoriam</span><span class="chev">›</span></a>' +
