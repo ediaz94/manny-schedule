@@ -77,6 +77,7 @@ window.Store = (function () {
       dayLogs: {},
       weights: [],
       workoutLogs: [],
+      workoutDrafts: {},
       mealLogs: {},
       dinnerPlan: seedDinnerPlan(),
       grocery: seedGrocery(),
@@ -109,6 +110,7 @@ window.Store = (function () {
     if (!state) { state = defaults(); save(); }
     const d = defaults();
     for (const k in d) if (!(k in state)) state[k] = d[k];
+    commitStaleDrafts();
     return state;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
@@ -147,6 +149,48 @@ window.Store = (function () {
     const w = lastWorkout(type); if (!w) return null;
     const sets = (w.sets || []).filter((s) => s.ex === exName && (s.weight != null || s.reps != null));
     return sets.length ? sets[sets.length - 1] : null;
+  }
+
+  /* Mid-workout drafts — every set saves instantly; survives closing the app. */
+  function getDraft(date, type) { return (state.workoutDrafts || {})[date + "_" + type] || null; }
+  function setDraftSet(date, type, key, val) {
+    if (!state.workoutDrafts) state.workoutDrafts = {};
+    const k = date + "_" + type;
+    if (!state.workoutDrafts[k]) state.workoutDrafts[k] = { sets: {}, startedAt: new Date().toISOString() };
+    state.workoutDrafts[k].sets[key] = val;
+    save();
+  }
+  function clearDraft(date, type) { if (state.workoutDrafts) { delete state.workoutDrafts[date + "_" + type]; save(); } }
+  // A draft from a previous day means the app was closed mid-workout and
+  // "Finish" never got tapped. File its logged sets as a real workout so
+  // nothing is lost, then drop the draft.
+  function commitStaleDrafts() {
+    const drafts = state.workoutDrafts || {};
+    const today = DateU.today();
+    let changed = false;
+    Object.keys(drafts).forEach((k) => {
+      const date = k.slice(0, 10), type = k.slice(11);
+      if (date >= today) return;
+      const w = DATA.workouts.find((x) => x.type === type);
+      const sets = [];
+      const ds = drafts[k].sets || {};
+      Object.keys(ds).forEach((sk) => {
+        const s = ds[sk]; if (!s || (s.weight == null && s.reps == null)) return;
+        const p = sk.split("_");
+        const exName = w && w.exercises[+p[0]] ? w.exercises[+p[0]].name : "Exercise " + (+p[0] + 1);
+        sets.push({ ex: exName, set: +p[1], weight: s.weight, reps: s.reps, felt: s.felt || null });
+      });
+      if (sets.length) {
+        state.workoutLogs.push({
+          id: uid(), date, type, startedAt: drafts[k].startedAt || null,
+          completedAt: drafts[k].startedAt || (date + "T23:59:00"),
+          note: "Auto-saved — the app was closed mid-workout.", sets
+        });
+      }
+      delete drafts[k];
+      changed = true;
+    });
+    if (changed) save();
   }
 
   function mealLog(dateISO) { const d = dateISO || DateU.today(); if (!state.mealLogs[d]) state.mealLogs[d] = {}; return state.mealLogs[d]; }
@@ -191,6 +235,7 @@ window.Store = (function () {
   return {
     load, save, get, day, toggleBlock, skipBlock, addWater, setPrayer,
     addWeight, latestWeight, uid, saveWorkout, lastWorkout, lastSet,
+    getDraft, setDraftSet, clearDraft,
     mealLog, setMeal, setDinner, toggleGrocery, resetGrocery,
     addFintech, toggleMilestone, fintechHoursWeek,
     setTaskStatus, addTask, saveVendor, saveMemoriam,

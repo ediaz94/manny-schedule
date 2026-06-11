@@ -122,8 +122,47 @@ window.Act = (function () {
 
     /* Workout */
     felt(el) {
-      document.getElementById("f_" + el.dataset.ex + "_" + el.dataset.set).value = el.dataset.v;
+      const ex = el.dataset.ex, sn = el.dataset.set;
+      const wIn = document.getElementById("w_" + ex + "_" + sn);
+      if (wIn && wIn.disabled) return; // row already saved — tap ✓ to unlock first
+      document.getElementById("f_" + ex + "_" + sn).value = el.dataset.v;
       el.parentNode.querySelectorAll(".fb").forEach((b) => b.classList.remove("on")); el.classList.add("on");
+      Act.stashRow(+ex, +sn);
+    },
+    // Auto-save what's typed (draft, not locked) so nothing is lost on close
+    stashRow(ex, sn) {
+      const dt = DATA.days.find((d) => d.dow === DateU.dow(T()));
+      if (!dt || !dt.workoutType) return;
+      Store.setDraftSet(T(), dt.workoutType, ex + "_" + sn, {
+        weight: num("w_" + ex + "_" + sn), reps: num("r_" + ex + "_" + sn),
+        felt: val("f_" + ex + "_" + sn) || null, done: false
+      });
+    },
+    // ✓ on a set row: save + lock (gray out, values stay visible). Tap again to edit.
+    saveSet(el) {
+      const ex = +el.dataset.ex, sn = +el.dataset.set;
+      const dt = DATA.days.find((d) => d.dow === DateU.dow(T()));
+      if (!dt || !dt.workoutType) return;
+      const row = document.getElementById("row_" + ex + "_" + sn);
+      const wIn = document.getElementById("w_" + ex + "_" + sn), rIn = document.getElementById("r_" + ex + "_" + sn);
+      const vals = { weight: num("w_" + ex + "_" + sn), reps: num("r_" + ex + "_" + sn), felt: val("f_" + ex + "_" + sn) || null };
+      const locked = el.classList.contains("on");
+      if (!locked && vals.weight == null && vals.reps == null) return UI.toast("Type the weight or reps first");
+      Store.setDraftSet(T(), dt.workoutType, ex + "_" + sn, Object.assign(vals, { done: !locked }));
+      el.classList.toggle("on", !locked);
+      el.title = locked ? "Save this set" : "Saved — tap to edit";
+      if (row) row.classList.toggle("saved", !locked);
+      wIn.disabled = rIn.disabled = !locked;
+      if (locked) wIn.focus();
+      const pill = document.getElementById("exdone_" + ex);
+      if (pill) {
+        const total = document.querySelectorAll('[id^="row_' + ex + '_"]').length;
+        const draft = Store.getDraft(T(), dt.workoutType);
+        let n = 0;
+        for (let s2 = 1; s2 <= total; s2++) { const d2 = draft && draft.sets[ex + "_" + s2]; if (d2 && d2.done) n++; }
+        pill.textContent = n + "/" + total;
+        pill.classList.toggle("full", n === total);
+      }
     },
     finishWorkout(el) {
       const type = el.dataset.type, w = DATA.workouts.find((x) => x.type === type);
@@ -140,6 +179,7 @@ window.Act = (function () {
       dt.blocks.forEach((b) => { if (b.type === "workout") Store.toggleBlock(T(), b.s) === undefined; });
       // mark workout blocks done (ensure true, not toggle)
       const dl = Store.day(T()); dt.blocks.forEach((b) => { if (b.type === "workout") dl.completed[b.s] = true; }); Store.save();
+      Store.clearDraft(T(), type);
       UI.toast("Workout saved 💪 " + sets.length + " sets");
       location.hash = "#/";
     },
@@ -333,6 +373,8 @@ window.Act = (function () {
       // 4) Water checks — twice daily
       ev("water-noon", [0, 1, 2, 3, 4, 5, 6], "12:30", "💧 Water check — you should be near 55 oz");
       ev("water-eve", [0, 1, 2, 3, 4, 5, 6], "18:45", "💧 Water check — push toward 120 oz by bedtime");
+      // 5) Friday weigh-in — right at wake, before coffee
+      ev("weigh-fri", [5], "06:20", "⚖️ Friday weigh-in — scale before coffee, log it in the app");
       lines.push("END:VCALENDAR");
       return lines.join("\r\n");
     },
@@ -363,6 +405,16 @@ document.addEventListener("change", function (e) {
   const el = e.target.closest("[data-act]");
   if (!el || el.tagName !== "SELECT") return;
   if (Act[el.dataset.act]) Act[el.dataset.act](el);
+});
+// Auto-stash workout inputs as you type (350 ms after the last keystroke)
+let stashTimer;
+document.addEventListener("input", function (e) {
+  const el = e.target;
+  if (!el.classList || !el.classList.contains("setin")) return;
+  const m = el.id.match(/^[wr]_(\d+)_(\d+)$/);
+  if (!m) return;
+  clearTimeout(stashTimer);
+  stashTimer = setTimeout(function () { Act.stashRow(+m[1], +m[2]); }, 350);
 });
 window.addEventListener("hashchange", function () { App.render(); });
 window.addEventListener("DOMContentLoaded", function () {

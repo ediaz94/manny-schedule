@@ -235,7 +235,7 @@ window.Screens = window.Screens || {};
         (hasPin ? ' <button class="btn btn-ghost" data-act="removePin">Remove PIN</button>' : "") +
       '</div>' +
       '<div class="card2"><div class="card2-h">Phone reminders</div>' +
-        '<p class="muted">Real iPhone notifications — leave-for-work, defrost tonight\'s dinner (named per day), gym days, and water checks. Download the file, open it, tap <b>Add All</b> to put them in your Calendar. They run through Nov 6, then stop on their own.</p>' +
+        '<p class="muted">Real iPhone notifications — leave-for-work, defrost tonight\'s dinner (named per day), gym days, water checks, and the Friday weigh-in. Download the file, open it, tap <b>Add All</b> to put them in your Calendar. They run through Nov 6, then stop on their own.</p>' +
         '<button class="btn btn-ghost" data-act="downloadICS">📅 Download reminders (.ics)</button>' +
         '<p class="muted" style="margin-top:8px;font-size:12.5px">Smarter nudges — like "you\'re behind on water" — show at the top of Today whenever you open the app. A free web app can\'t check your data in the background, so those only fire in-app.</p>' +
       '</div>' +

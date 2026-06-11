@@ -125,9 +125,14 @@ window.Screens = window.Screens || {};
       '</div>';
 
     const nds = nudges(date, dt, dl, dinnerIdx);
-    const nudgeHtml = nds.length
-      ? nds.map((n) => '<div class="nudge' + (n.w ? ' warn' : '') + '"><span>' + n.i + '</span><p>' + esc(n.t) + '</p></div>').join("")
-      : "";
+    const nudgeHtml = nds.map((n) => {
+      const tap = n.act || n.href;
+      const tag = n.href ? "a" : "div";
+      const attr = n.href ? ' href="' + n.href + '"' : (n.act ? ' data-act="' + n.act + '" role="button"' : "");
+      return '<' + tag + ' class="nudge' + (n.w ? ' warn' : '') + (tap ? ' tap' : '') + '"' + attr + '>' +
+        '<span>' + n.i + '</span><p>' + esc(n.t) + '</p>' + (tap ? '<span class="nchev">›</span>' : '') +
+      '</' + tag + '>';
+    }).join("");
 
     return '<div class="screen">' +
       topbar("Today", '<a class="datepill" href="#/review">' + esc(DateU.fmt(date)) + '</a>') +
@@ -160,6 +165,15 @@ window.Screens = window.Screens || {};
       if (com && !dl.completed[com.s] && nowM >= DateU.toMin(com.s) - 25 && nowM < DateU.toMin(com.e))
         out.push({ i: "🚗", w: 1, t: "Heads up — leave for work by " + DateU.time12(com.s) + "." });
     }
+    // Weigh-in: Friday mornings (the plan's weigh-in day), or any morning
+    // once it's been more than 8 days. Tap to log right there.
+    const lastW = Store.latestWeight();
+    const overdue = lastW && DateU.daysBetween(lastW.date, date) > 8;
+    const weighedToday = lastW && lastW.date === date;
+    if (!weighedToday && nowM >= 360 && nowM < 720 && (dow === 5 || overdue))
+      out.push({ i: "⚖️", w: 0, act: "addWeight", t: dow === 5
+        ? "Friday weigh-in — scale after the bathroom, before coffee. Tap to log it."
+        : "Weigh-in is overdue — hop on the scale this morning. Tap to log it." });
     // Defrost tonight's dinner: mornings until noon
     const dn = dinnerIdx != null ? DATA.dinners[dinnerIdx] : null;
     if (dn && dn.defrost && nowM >= 360 && nowM < 720)
@@ -175,7 +189,7 @@ window.Screens = window.Screens || {};
     if (dt.workoutType) {
       const wb = dt.blocks.find((b) => b.type === "workout");
       if (wb && !dl.completed[wb.s] && nowM >= 360 && nowM < DateU.toMin(wb.s))
-        out.push({ i: "🏋️", w: 0, t: "Gym day today — " + wb.title + " at " + DateU.time12(wb.s) + "." });
+        out.push({ i: "🏋️", w: 0, href: "#/workout", t: "Gym day today — " + wb.title + " at " + DateU.time12(wb.s) + "." });
     }
     return out.slice(0, 2);
   }
@@ -219,6 +233,8 @@ window.Screens = window.Screens || {};
     const w = workoutFor(dt.workoutType);
     const prog = Phases.progress(date);
     const guidance = prog ? prog.phase.workout : "";
+    const draft = Store.getDraft(date, w.type) || { sets: {} };
+    const doneToday = Store.get().workoutLogs.some((l) => l.date === date && l.type === w.type && l.completedAt);
 
     const ex = w.exercises.map((e, i) => {
       const last = Store.lastSet(w.type, e.name);
@@ -226,25 +242,33 @@ window.Screens = window.Screens || {};
         ? '<span class="last">Last: ' + esc(last.weight) + (typeof last.weight === "number" ? " lb" : "") + (last.reps ? " × " + esc(last.reps) : "") + '</span>'
         : '<span class="last start">Start: ' + esc(e.start) + '</span>';
       const cues = (e.cues || []).map((c) => '<li>' + esc(c) + '</li>').join("");
+      let doneCt = 0;
       const setRows = Array.from({ length: e.sets }, (_, k) => {
         const sn = k + 1;
-        return '<div class="setrow">' +
+        const ds = draft.sets[i + "_" + sn] || null;
+        const lock = !!(ds && ds.done);
+        if (lock) doneCt++;
+        const dis = lock ? " disabled" : "";
+        const fv = ds && ds.felt ? ds.felt : "";
+        return '<div class="setrow' + (lock ? " saved" : "") + '" id="row_' + i + '_' + sn + '">' +
           '<span class="setno">Set ' + sn + '</span>' +
-          '<input class="setin" id="w_' + i + '_' + sn + '" inputmode="decimal" placeholder="' + (last && last.weight != null ? esc(last.weight) : "lb") + '">' +
+          '<input class="setin" id="w_' + i + '_' + sn + '" inputmode="decimal" placeholder="' + (last && last.weight != null ? esc(last.weight) : "lb") + '" value="' + (ds && ds.weight != null ? ds.weight : "") + '"' + dis + '>' +
           '<span class="x">×</span>' +
-          '<input class="setin" id="r_' + i + '_' + sn + '" inputmode="numeric" placeholder="reps">' +
-          '<input type="hidden" id="f_' + i + '_' + sn + '">' +
+          '<input class="setin" id="r_' + i + '_' + sn + '" inputmode="numeric" placeholder="reps" value="' + (ds && ds.reps != null ? ds.reps : "") + '"' + dis + '>' +
+          '<input type="hidden" id="f_' + i + '_' + sn + '" value="' + fv + '">' +
           '<span class="felt">' +
-            '<button class="fb easy" data-act="felt" data-ex="' + i + '" data-set="' + sn + '" data-v="easy" title="Felt easy">·</button>' +
-            '<button class="fb right" data-act="felt" data-ex="' + i + '" data-set="' + sn + '" data-v="right" title="Felt right">·</button>' +
-            '<button class="fb hard" data-act="felt" data-ex="' + i + '" data-set="' + sn + '" data-v="hard" title="Felt hard">·</button>' +
+            '<button class="fb easy' + (fv === "easy" ? " on" : "") + '" data-act="felt" data-ex="' + i + '" data-set="' + sn + '" data-v="easy" title="Felt easy">·</button>' +
+            '<button class="fb right' + (fv === "right" ? " on" : "") + '" data-act="felt" data-ex="' + i + '" data-set="' + sn + '" data-v="right" title="Felt right">·</button>' +
+            '<button class="fb hard' + (fv === "hard" ? " on" : "") + '" data-act="felt" data-ex="' + i + '" data-set="' + sn + '" data-v="hard" title="Felt hard">·</button>' +
           '</span>' +
+          '<button class="setsave' + (lock ? " on" : "") + '" data-act="saveSet" data-ex="' + i + '" data-set="' + sn + '" title="' + (lock ? "Saved — tap to edit" : "Save this set") + '">✓</button>' +
         '</div>';
       }).join("");
       return '<div class="ex">' +
         '<div class="ex-head">' +
           '<div><div class="ex-name">' + esc(e.name) + '</div>' +
-            '<div class="ex-target">' + e.sets + ' × ' + esc(e.reps) + ' &nbsp;·&nbsp; ' + lastPill + '</div></div>' +
+            '<div class="ex-target">' + e.sets + ' × ' + esc(e.reps) + ' &nbsp;·&nbsp; ' + lastPill +
+              '<span class="expill' + (doneCt === e.sets ? " full" : "") + '" id="exdone_' + i + '">' + doneCt + '/' + e.sets + '</span></div></div>' +
           '<a class="demo" href="' + esc(e.demo) + '" target="_blank" rel="noopener">▶ Demo</a>' +
         '</div>' +
         (e.notes ? '<div class="ex-note">' + esc(e.notes) + '</div>' : "") +
@@ -258,7 +282,10 @@ window.Screens = window.Screens || {};
       topbar(w.name, '<a class="datepill" href="#/workout/history">History</a>') +
       '<div class="wrap">' +
         '<div class="wk-meta">~' + w.minutes + ' min · ' + w.exercises.length + ' exercises' +
-          (guidance ? '<div class="guide">📋 ' + esc(guidance) + '</div>' : "") + '</div>' +
+          (guidance ? '<div class="guide">📋 ' + esc(guidance) + '</div>' : "") +
+          (doneToday ? '<div class="guide done-banner">✅ Finished today — nice work. Logging more saves a second session.</div>' : "") +
+          '<div class="savehint">💾 Tap ✓ after each set — it saves instantly, so it\'s safe to close the app between sets.</div>' +
+        '</div>' +
         '<details class="warm" open><summary>🔥 Warm-up</summary><p>' + esc(w.warmup) + '</p></details>' +
         ex +
         '<details class="warm"><summary>🧊 Cooldown</summary><p>' + esc(w.cooldown) + '</p></details>' +
