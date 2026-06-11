@@ -69,6 +69,13 @@ a{color:inherit}
 .phase .pbar{height:6px; border-radius:99px; background:rgba(255,255,255,.18); margin-top:12px; overflow:hidden}
 .phase .pbar i{display:block; height:100%; background:#CDB9DA; border-radius:99px}
 
+/* ---- Nudges --------------------------------------------------------- */
+.nudge{display:flex; gap:10px; align-items:flex-start; background:#EAF0EC; border:1px solid #D4E0D8; border-radius:12px; padding:11px 13px; margin-bottom:10px}
+.nudge span{font-size:17px; line-height:1.2}
+.nudge p{margin:0; font-size:13.5px; line-height:1.45; color:var(--sage); font-weight:600}
+.nudge.warn{background:#FBF7EE; border-color:#ECE0C6}
+.nudge.warn p{color:#7a5f23}
+
 /* ---- Right now ------------------------------------------------------ */
 .now{background:var(--surface); border:1.5px solid var(--purple); border-left:5px solid var(--purple);
   border-radius:16px; padding:16px; margin-bottom:18px; box-shadow:0 4px 14px rgba(139,114,152,.18)}

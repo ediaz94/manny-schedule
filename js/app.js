@@ -272,6 +272,76 @@ window.Act = (function () {
       a.download = "manny-plan-backup-" + T() + ".json"; document.body.appendChild(a); a.click(); a.remove();
       UI.toast("Backup downloaded");
     },
+
+    /* Calendar reminders (.ics) — native iPhone notifications, no server.
+       Recurring alerts through Nov 6, then they stop on their own. */
+    buildICS() {
+      const TZ = "America/New_York";
+      const UNTIL = "20261107T045959Z"; // end of Nov 6, Eastern
+      const BY = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+      const stamp = new Date().toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+      const today = T();
+      // first calendar date on/after today that falls on one of the listed weekdays
+      const firstOn = (dows) => { let c = today; for (let i = 0; i < 8; i++) { if (dows.indexOf(DateU.dow(c)) >= 0) return c; c = DateU.addDays(c, 1); } return c; };
+      const dtLocal = (dateISO, hm) => dateISO.replace(/-/g, "") + "T" + hm.replace(":", "") + "00";
+      const lines = [
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Manny's Plan//Reminders//EN",
+        "CALSCALE:GREGORIAN", "X-WR-CALNAME:Manny's Plan Reminders",
+        "BEGIN:VTIMEZONE", "TZID:" + TZ,
+        "BEGIN:DAYLIGHT", "TZOFFSETFROM:-0500", "TZOFFSETTO:-0400", "TZNAME:EDT",
+        "DTSTART:19700308T020000", "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU", "END:DAYLIGHT",
+        "BEGIN:STANDARD", "TZOFFSETFROM:-0400", "TZOFFSETTO:-0500", "TZNAME:EST",
+        "DTSTART:19701101T020000", "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU", "END:STANDARD",
+        "END:VTIMEZONE"
+      ];
+      const ev = (key, dows, hm, summary) => {
+        lines.push(
+          "BEGIN:VEVENT",
+          "UID:manny-plan-" + key + "@ediaz94.github.io",
+          "DTSTAMP:" + stamp,
+          "DTSTART;TZID=" + TZ + ":" + dtLocal(firstOn(dows), hm),
+          "DURATION:PT5M",
+          "RRULE:FREQ=WEEKLY;BYDAY=" + dows.map((d) => BY[d]).join(",") + ";UNTIL=" + UNTIL,
+          "SUMMARY:" + summary,
+          "BEGIN:VALARM", "ACTION:DISPLAY", "DESCRIPTION:" + summary, "TRIGGER:PT0S", "END:VALARM",
+          "END:VEVENT"
+        );
+      };
+      // 1) Leave for work — weekdays 7:10 AM
+      ev("leave-work", [1, 2, 3, 4, 5], "07:10", "🚗 Leave for work by 7:15");
+      // 2) Defrost tonight's dinner — named per day from the rotation
+      const plan = Store.get().dinnerPlan;
+      for (let d = 0; d <= 6; d++) {
+        const dn = plan[d] != null ? DATA.dinners[plan[d]] : null;
+        if (!dn || !dn.defrost) continue;
+        const hm = (d >= 1 && d <= 5) ? "06:50" : "09:00"; // weekends sleep in
+        ev("defrost-" + BY[d].toLowerCase(), [d], hm, "🧊 Freezer: take out " + dn.defrost + " — tonight is " + dn.name);
+      }
+      // 3) Gym days — right before the drive to the gym (or the Saturday run)
+      DATA.days.forEach((day) => {
+        if (!day.workoutType) return;
+        const wb = day.blocks.find((b) => b.type === "workout");
+        if (!wb) return;
+        if (day.dow >= 1 && day.dow <= 5) {
+          const isGym = day.workoutType !== "active-recovery";
+          ev("gym-" + BY[day.dow].toLowerCase(), [day.dow], "16:40",
+            (isGym ? "🏋️ Gym tonight — " : "🚶 After work — ") + wb.title + " at " + DateU.time12(wb.s));
+        } else if (day.dow === 6) {
+          ev("run-sat", [6], "07:20", "🏃 Long run this morning — 60–75 min");
+        }
+      });
+      // 4) Water checks — twice daily
+      ev("water-noon", [0, 1, 2, 3, 4, 5, 6], "12:30", "💧 Water check — you should be near 55 oz");
+      ev("water-eve", [0, 1, 2, 3, 4, 5, 6], "18:45", "💧 Water check — push toward 120 oz by bedtime");
+      lines.push("END:VCALENDAR");
+      return lines.join("\r\n");
+    },
+    downloadICS() {
+      const blob = new Blob([Act.buildICS()], { type: "text/calendar;charset=utf-8" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = "manny-plan-reminders.ics"; document.body.appendChild(a); a.click(); a.remove();
+      UI.toast("Open the file → Add All to Calendar");
+    },
     importData() {
       const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/json";
       inp.onchange = () => { const f = inp.files[0]; if (!f) return; f.text().then((t) => { try { Store.importJSON(t); App.ui.taskMonth = undefined; App.render(); UI.toast("Backup restored"); } catch (e) { UI.toast("Could not read that file"); } }); };

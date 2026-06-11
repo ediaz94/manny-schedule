@@ -275,7 +275,7 @@ window.DATA = (function () {
 
   /* ---- Dinner rotation WITH FULL RECIPES ------------------------------ */
   const dinners = [
-    { name: "Pan-Seared Chicken Thighs", dow: 1, blurb: "with Dijon-thyme pan sauce, roasted broccoli & sweet potato",
+    { name: "Pan-Seared Chicken Thighs", dow: 1, blurb: "with Dijon-thyme pan sauce, roasted broccoli & sweet potato", defrost: "chicken thighs",
       ingredients: ["4 bone-in or boneless chicken thighs", "Salt & pepper", "1 tbsp olive oil", "1 tbsp butter",
         "½ cup chicken stock", "1 tbsp Dijon mustard", "2 sprigs fresh thyme (or ½ tsp dried)", "1 head broccoli, cut into florets", "1 medium sweet potato"],
       steps: [
@@ -286,7 +286,7 @@ window.DATA = (function () {
         "Off heat, swirl in 1 tbsp butter until glossy. Spoon over the chicken.",
         "Plate with the roasted broccoli and sweet potato."],
       time: "35 min", protein: "~45 g" },
-    { name: "Reverse-Seared Steak", dow: 2, blurb: "with chimichurri, arugula salad & roasted potatoes",
+    { name: "Reverse-Seared Steak", dow: 2, blurb: "with chimichurri, arugula salad & roasted potatoes", defrost: "steak",
       ingredients: ["1 sirloin or flank steak (~1 lb)", "Salt & pepper", "Baby potatoes, halved", "Olive oil",
         "Arugula", "Chimichurri: ½ cup parsley, 2 cloves garlic, 2 tbsp red wine vinegar, ⅓ cup olive oil, pinch chili flakes & salt"],
       steps: [
@@ -297,7 +297,7 @@ window.DATA = (function () {
         "Rest 5 min, slice against the grain.",
         "Serve over arugula with potatoes; spoon chimichurri over the top."],
       time: "45 min", protein: "~50 g" },
-    { name: "Salmon with Lemon-Caper Butter", dow: 3, blurb: "with asparagus & farro",
+    { name: "Salmon with Lemon-Caper Butter", dow: 3, blurb: "with asparagus & farro", defrost: "salmon fillets",
       ingredients: ["2 salmon fillets", "Salt & pepper", "1 tbsp olive oil", "2 tbsp butter", "1 lemon (juice + zest)",
         "1 tbsp capers", "1 bunch asparagus", "1 cup cooked farro"],
       steps: [
@@ -308,7 +308,7 @@ window.DATA = (function () {
         "Lower heat, add butter, lemon juice, zest, and capers; swirl into a quick sauce.",
         "Plate salmon over farro with asparagus; spoon the lemon-caper butter over."],
       time: "30 min", protein: "~40 g" },
-    { name: "Shrimp + Andouille Skillet", dow: 4, blurb: "with peppers, onions & cauliflower rice (Cajun nod)",
+    { name: "Shrimp + Andouille Skillet", dow: 4, blurb: "with peppers, onions & cauliflower rice (Cajun nod)", defrost: "shrimp",
       ingredients: ["1 lb shrimp, peeled", "6 oz andouille sausage, sliced", "1 bell pepper, sliced", "1 onion, sliced",
         "2 cups cauliflower rice", "1 tbsp olive oil", "1–2 tsp Cajun seasoning", "Salt to taste"],
       steps: [
@@ -318,7 +318,7 @@ window.DATA = (function () {
         "Add cauliflower rice, stir, cook 3–4 min until tender.",
         "Taste, adjust salt and Cajun heat. Serve hot."],
       time: "25 min", protein: "~45 g" },
-    { name: "Turkey Meatballs", dow: 5, blurb: "in tomato sauce over zucchini noodles or pasta",
+    { name: "Turkey Meatballs", dow: 5, blurb: "in tomato sauce over zucchini noodles or pasta", defrost: "ground turkey",
       ingredients: ["1 lb ground turkey", "1 egg", "⅓ cup breadcrumbs", "2 cloves garlic, minced", "Salt, pepper, Italian herbs",
         "1 jar (or 2 cups) tomato sauce", "Fresh basil", "2 zucchini spiralized (or a small portion of pasta)"],
       steps: [
@@ -328,7 +328,7 @@ window.DATA = (function () {
         "Sauté zucchini noodles 2–3 min (or boil pasta).",
         "Serve meatballs and sauce over the noodles; top with torn basil."],
       time: "35 min", protein: "~45 g" },
-    { name: "Pork Tenderloin", dow: 6, blurb: "apple-Dijon pan sauce, roasted Brussels sprouts & quinoa",
+    { name: "Pork Tenderloin", dow: 6, blurb: "apple-Dijon pan sauce, roasted Brussels sprouts & quinoa", defrost: "pork tenderloin",
       ingredients: ["1 pork tenderloin (~1 lb)", "Salt & pepper", "1 tbsp olive oil", "1 apple, diced", "1 tbsp Dijon",
         "½ cup chicken stock", "1 tbsp butter", "1 lb Brussels sprouts, halved", "1 cup cooked quinoa"],
       steps: [
@@ -338,7 +338,7 @@ window.DATA = (function () {
         "In the same skillet, sauté apple 2 min; add Dijon + stock, simmer 3 min, swirl in butter.",
         "Slice the pork, spoon the apple-Dijon sauce over. Serve with sprouts and quinoa."],
       time: "40 min", protein: "~45 g" },
-    { name: "Carne Asada Tacos", dow: 0, blurb: "corn tortillas, cabbage slaw, avocado, lime",
+    { name: "Carne Asada Tacos", dow: 0, blurb: "corn tortillas, cabbage slaw, avocado, lime", defrost: "flank steak (start the marinade too)",
       ingredients: ["1 lb flank or skirt steak", "Marinade: ¼ cup lime juice, 2 cloves garlic, ¼ cup cilantro, 1 tbsp oil, salt, cumin",
         "Corn tortillas", "2 cups shredded cabbage", "1 avocado", "Lime wedges", "Extra cilantro"],
       steps: [

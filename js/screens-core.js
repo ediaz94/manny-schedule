@@ -124,9 +124,14 @@ window.Screens = window.Screens || {};
         '<div class="stat"><b>' + (dt.workoutType ? '🏋️' : '🌙') + '</b><span>' + (dt.workoutType ? 'workout day' : 'rest day') + '</span></div>' +
       '</div>';
 
+    const nds = nudges(date, dt, dl, dinnerIdx);
+    const nudgeHtml = nds.length
+      ? nds.map((n) => '<div class="nudge' + (n.w ? ' warn' : '') + '"><span>' + n.i + '</span><p>' + esc(n.t) + '</p></div>').join("")
+      : "";
+
     return '<div class="screen">' +
       topbar("Today", '<a class="datepill" href="#/review">' + esc(DateU.fmt(date)) + '</a>') +
-      '<div class="wrap">' + phaseCard + hero +
+      '<div class="wrap">' + phaseCard + nudgeHtml + hero +
         '<div class="sec-h">Today\'s schedule</div><div class="tl">' + rows + '</div>' +
         water + stats +
       '</div></div>';
@@ -140,6 +145,39 @@ window.Screens = window.Screens || {};
     if (m < 10) return "";
     const h = Math.floor(m / 60), r = m % 60;
     return h ? h + " hr" + (r ? " " + r + " min" : "") : m + " min";
+  }
+
+  // Smart nudges — contextual banners at the top of Today.
+  // Ordered by urgency; at most 2 show at once. They clear themselves
+  // when the moment passes or the thing gets done.
+  function nudges(date, dt, dl, dinnerIdx) {
+    const out = [];
+    const nowM = DateU.nowMinutes();
+    const dow = DateU.dow(date);
+    // Leave for work: weekdays, from 25 min before the commute until it ends
+    if (dow >= 1 && dow <= 5) {
+      const com = dt.blocks.find((b) => b.type === "commute");
+      if (com && !dl.completed[com.s] && nowM >= DateU.toMin(com.s) - 25 && nowM < DateU.toMin(com.e))
+        out.push({ i: "🚗", w: 1, t: "Heads up — leave for work by " + DateU.time12(com.s) + "." });
+    }
+    // Defrost tonight's dinner: mornings until noon
+    const dn = dinnerIdx != null ? DATA.dinners[dinnerIdx] : null;
+    if (dn && dn.defrost && nowM >= 360 && nowM < 720)
+      out.push({ i: "🧊", w: 0, t: "Tonight is " + dn.name + " — take the " + dn.defrost + " out of the freezer before you head out." });
+    // Water pacing: 10 AM – 9 PM, expects steady sipping from wake to bedtime
+    if (nowM >= 600 && nowM <= 1260) {
+      const tgt = DATA.profile.hydrationTargetOz;
+      const expect = Math.round((Math.min(1, (nowM - 375) / 885) * tgt) / 8) * 8;
+      if ((dl.hydration || 0) < expect - 16)
+        out.push({ i: "💧", w: 1, t: "You're at " + (dl.hydration || 0) + " oz — aim for ~" + expect + " oz by now. Drink up." });
+    }
+    // Gym day: from 6 AM until the workout starts (or gets checked off)
+    if (dt.workoutType) {
+      const wb = dt.blocks.find((b) => b.type === "workout");
+      if (wb && !dl.completed[wb.s] && nowM >= 360 && nowM < DateU.toMin(wb.s))
+        out.push({ i: "🏋️", w: 0, t: "Gym day today — " + wb.title + " at " + DateU.time12(wb.s) + "." });
+    }
+    return out.slice(0, 2);
   }
 
   function heroCTA(b, date) {
