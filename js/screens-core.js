@@ -67,25 +67,33 @@ window.Screens = window.Screens || {};
     const nowM = DateU.nowMinutes();
     let curIdx = -1, nextIdx = -1;
     if (isToday) items.forEach((it, i) => {
+      if (it.kind === "cus" && it.c.allDay) return; // all-day events don't hog the clock
       const s = DateU.toMin(it.effS), e = DateU.toMin(it.effE);
       if (nowM >= s && nowM < e && curIdx < 0) curIdx = i;
       if (nowM < s && nextIdx < 0) nextIdx = i;
     });
-    const heroIdx = curIdx >= 0 ? curIdx : nextIdx;
+    let heroIdx = curIdx >= 0 ? curIdx : nextIdx;
+    let adHero = false;
+    if (isToday && curIdx < 0) {
+      const ad = items.findIndex((x) => x.kind === "cus" && x.c.allDay && !dl.completed[x.key]);
+      if (ad >= 0) { heroIdx = ad; adHero = true; }
+    }
     let hero = "";
     if (isToday && heroIdx >= 0) {
       const it = items[heroIdx];
-      const hTitle = it.kind === "tpl" ? it.b.title : it.c.title;
-      const hDesc = it.kind === "tpl" ? (it.b.desc || "") : (it.c.note || "");
-      const hIcon = it.kind === "tpl" ? blockEmoji(it.b) : "📌";
-      const hCta = it.kind === "tpl" ? heroCTA(it.b, date)
+      const isCusH = it.kind === "cus";
+      const hTitle = isCusH ? it.c.title : it.b.title;
+      const hDesc = isCusH ? ((it.c.note ? it.c.note + " " : "") + (it.c.loc && !it.c.travel ? "📍 " + it.c.loc : "")).trim() : (it.b.desc || "");
+      const hIcon = isCusH ? (it.c.travel ? "🚗" : "📌") : blockEmoji(it.b);
+      const hAllDay = isCusH && it.c.allDay;
+      const hCta = !isCusH ? heroCTA(it.b, date)
         : '<button class="btn btn-primary" data-act="toggleBlock" data-k="' + esc(it.key) + '">Mark done</button>';
       hero =
         '<div class="now">' +
-          '<span class="kicker"><span class="dot"></span> ' + (curIdx >= 0 ? "Right now" : "Up next") + '</span>' +
+          '<span class="kicker"><span class="dot"></span> ' + (curIdx >= 0 ? "Right now" : adHero ? "All day today" : "Up next") + '</span>' +
           '<h2>' + hIcon + ' ' + esc(hTitle) + '</h2>' +
-          '<div class="now-time tabnum">' + DateU.time12(it.effS) + ' – ' + DateU.time12(it.effE) + (durTxt(it) ? ' · ' + durTxt(it) : '') + '</div>' +
-          '<p>' + esc(hDesc) + (it.kind === "tpl" && it.b.meal === "dinner" && todaysDinner ? ' <b>Tonight: ' + esc(todaysDinner.name) + '.</b>' : "") + '</p>' +
+          '<div class="now-time tabnum">' + (hAllDay ? "All day" : DateU.time12(it.effS) + ' – ' + DateU.time12(it.effE) + (durTxt(it) ? ' · ' + durTxt(it) : '')) + '</div>' +
+          '<p>' + esc(hDesc) + (!isCusH && it.b.meal === "dinner" && todaysDinner ? ' <b>Tonight: ' + esc(todaysDinner.name) + '.</b>' : "") + '</p>' +
           '<div class="cta">' + hCta + '</div>' +
         '</div>';
     }
@@ -95,13 +103,14 @@ window.Screens = window.Screens || {};
       const done = !!dl.completed[it.key], skipped = it.kind === "tpl" && it.key in dl.skipped, cur = i === curIdx;
       const cls = (done ? "is-done" : skipped ? "is-skip" : cur ? "is-cur" : "") + (it.kind === "cus" ? " is-cus" : "");
       const b = it.b || null;
+      const cAllDay = !b && it.c.allDay;
       const isDinner = b && b.meal === "dinner" && todaysDinner;
       let ctaInline = b ? blockOpenLink(b, date, isToday) : "";
       if (isDinner) ctaInline = '<button class="btn btn-ghost" data-act="recipe" data-i="' + dinnerIdx + '">🍴 View recipe</button>';
       const title = b ? b.title : it.c.title;
-      const desc = b ? (b.desc || "") : (it.c.note || "");
+      const desc = b ? (b.desc || "") : ((it.c.note ? it.c.note + " " : "") + (it.c.loc && !it.c.travel ? "📍 " + it.c.loc : "")).trim();
       const sub = isDinner ? esc(todaysDinner.name) + ' · tap for recipe' : esc(desc.length > 64 ? desc.slice(0, 62) + "…" : desc);
-      const icon = b ? blockEmoji(b) : "📌";
+      const icon = b ? blockEmoji(b) : (it.c.travel ? "🚗" : "📌");
       const check = isFuture
         ? '<span class="check off">·</span>'
         : (cur ? '<span class="chip now-chip">Now</span>' :
@@ -115,9 +124,12 @@ window.Screens = window.Screens || {};
       const markBtn = isFuture ? "" :
         (done ? '<button class="btn btn-ghost" data-act="toggleBlock" data-k="' + esc(it.key) + '"' + dAttr + '>Undo</button>'
               : '<button class="btn btn-primary" data-act="toggleBlock" data-k="' + esc(it.key) + '"' + dAttr + '>Mark done</button>');
+      const timeCell = cAllDay
+        ? '<div class="time allday">All<span class="te2">day</span></div>'
+        : '<div class="time tabnum">' + DateU.time12c(it.effS) + '<span class="te">' + DateU.time12c(it.effE) + '</span></div>';
       return '<details class="row ' + cls + '">' +
         '<summary>' +
-          '<div class="time tabnum">' + DateU.time12c(it.effS) + '<span class="te">' + DateU.time12c(it.effE) + '</span></div>' +
+          timeCell +
           '<div class="rail"><span class="node ' + (done ? "done" : cur ? "cur" : "") + '"></span></div>' +
           '<div class="card">' +
             '<span class="ico">' + icon + '</span>' +
@@ -127,7 +139,7 @@ window.Screens = window.Screens || {};
           '</div>' +
         '</summary>' +
         '<div class="row-x">' +
-          '<p class="rngline tabnum">🕐 ' + DateU.time12(it.effS) + ' – ' + DateU.time12(it.effE) + (durTxt(it) ? ' &nbsp;·&nbsp; ' + durTxt(it) : '') + '</p>' +
+          '<p class="rngline tabnum">🕐 ' + (cAllDay ? 'All day' : DateU.time12(it.effS) + ' – ' + DateU.time12(it.effE) + (durTxt(it) ? ' &nbsp;·&nbsp; ' + durTxt(it) : '')) + '</p>' +
           (desc ? '<p>' + esc(desc) + '</p>' : "") +
           '<div class="row-btns">' + markBtn + ctaInline + planBtns + '</div>' +
         '</div>' +
@@ -217,6 +229,15 @@ window.Screens = window.Screens || {};
       if (com && !dl.completed[com.s] && nowM >= DateU.toMin(com.s) - 25 && nowM < DateU.toMin(com.e))
         out.push({ i: "🚗", w: 1, t: "Heads up — leave for work by " + DateU.time12(com.s) + "." });
     }
+    // Traveling today: leave-by reminder for any drive block, from an hour out
+    (dl.custom || []).forEach((c) => {
+      if (!c.travel || dl.completed["cus" + c.id]) return;
+      const lv = DateU.toMin(c.s);
+      if (nowM >= lv - 60 && nowM < lv + 30) {
+        const d2 = durTxt(c);
+        out.push({ i: "🚗", w: 1, t: "Leave by " + DateU.time12(c.s) + (c.loc ? " for " + c.loc : "") + (d2 ? " — about " + d2 + " of driving." : ".") });
+      }
+    });
     // Weigh-in: Friday mornings (the plan's weigh-in day), or any morning
     // once it's been more than 8 days. Tap to log right there.
     const lastW = Store.latestWeight();

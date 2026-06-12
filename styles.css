@@ -105,6 +105,15 @@ a.nudge{text-decoration:none}
 .cal-legend{display:flex; gap:10px; align-items:center; justify-content:center; font-size:11px; color:var(--ink-2); margin:2px 0 6px; flex-wrap:wrap; font-weight:600}
 .cal-legend i{width:13px; height:13px; border-radius:4px; display:inline-block; vertical-align:-2px; margin-right:4px; border:1px solid rgba(0,0,0,.05)}
 
+/* ---- Custom events: all-day, travel, conflicts ----------------------- */
+.chkrow{display:flex; gap:9px; align-items:center; font-size:14.5px; font-weight:700; margin:14px 0; color:var(--sage); cursor:pointer}
+.chkrow input{width:19px; height:19px; accent-color:var(--purple)}
+.drv.on{background:var(--purple); color:#fff; border-color:var(--purple)}
+.confl{display:flex; gap:11px; align-items:center; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:11px 13px; margin:7px 0; font-size:13.5px; cursor:pointer}
+.confl input{width:19px; height:19px; flex:none; accent-color:var(--purple)}
+.time.allday{font-size:11px; font-weight:800; color:var(--purple); text-align:right; padding:14px 8px 0 0; white-space:nowrap}
+.time.allday .te2{display:block; font-size:10px; opacity:.7; margin-top:2px}
+
 /* ---- Finished-early sheet ------------------------------------------- */
 .found{font-size:14.5px; color:var(--ink-2); margin:4px 0 12px; line-height:1.55}
 .found b{color:var(--ink)}

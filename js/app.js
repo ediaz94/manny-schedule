@@ -140,33 +140,104 @@ window.Act = (function () {
       const date = el.dataset.date || App.ui.viewDate || T();
       UI.sheet("Add to " + DateU.fmt(date),
         '<input type="hidden" id="cdate" value="' + date + '">' +
-        '<label class="field"><span>What is it?</span><input id="ctitle" placeholder="e.g. Dinner with Jake" autofocus></label>' +
-        '<label class="field"><span>Starts</span><input type="time" id="cstart" value="19:00"></label>' +
-        '<label class="field"><span>Ends</span><input type="time" id="cend" value="20:30"></label>' +
-        '<label class="field"><span>Note (optional)</span><input id="cnote" placeholder="where, who, what to bring"></label>' +
-        '<button class="btn btn-primary big" data-act="saveCustom">Add it</button>');
+        '<label class="field"><span>What is it?</span><input id="ctitle" placeholder="e.g. Father\'s Day in Baxley" autofocus></label>' +
+        '<label class="chkrow"><input type="checkbox" id="callday"> This takes the whole day</label>' +
+        '<div id="ctimes">' +
+          '<label class="field"><span>Starts</span><input type="time" id="cstart" value="19:00"></label>' +
+          '<label class="field"><span>Ends</span><input type="time" id="cend" value="20:30"></label>' +
+        '</div>' +
+        '<label class="field"><span>Where? (optional)</span><input id="cloc" placeholder="e.g. Baxley, GA"></label>' +
+        '<div class="field"><span>Driving there? One-way drive time:</span>' +
+          '<div class="presets">' +
+            [0, 30, 60, 90, 120, 180].map((m) => '<button type="button" class="chipbtn drv' + (m === 0 ? " on" : "") + '" data-min="' + m + '">' +
+              (m ? (m >= 60 ? (m / 60) + (m % 60 ? ".5" : "") + " hr" : m + " min") : "No drive") + '</button>').join("") +
+          '</div><input type="hidden" id="cdrive" value="0"></div>' +
+        '<label class="field" id="cleavewrap" style="display:none"><span>When do you plan to leave?</span><input type="time" id="cleave"></label>' +
+        '<label class="field"><span>Note (optional)</span><input id="cnote" placeholder="who, what to bring"></label>' +
+        '<button class="btn btn-primary big" data-act="saveCustom">Add it</button>',
+        (body) => {
+          body.querySelector("#callday").addEventListener("change", (ev) => {
+            body.querySelector("#ctimes").style.display = ev.target.checked ? "none" : "";
+          });
+          body.querySelectorAll(".drv").forEach((btn) => btn.addEventListener("click", () => {
+            body.querySelectorAll(".drv").forEach((x) => x.classList.remove("on"));
+            btn.classList.add("on");
+            const m = +btn.dataset.min;
+            body.querySelector("#cdrive").value = m;
+            const wrap = body.querySelector("#cleavewrap");
+            wrap.style.display = m ? "" : "none";
+            if (m) {
+              const lv = body.querySelector("#cleave");
+              if (!lv.value) {
+                const allDay = body.querySelector("#callday").checked;
+                const s = body.querySelector("#cstart").value;
+                lv.value = allDay || !/^\d\d:\d\d$/.test(s) ? "08:30" : DateU.fromMin(Math.max(0, DateU.toMin(s) - m));
+              }
+            }
+          }));
+        });
     },
     saveCustom() {
-      const date = val("cdate"), title = val("ctitle"), s = val("cstart"), e0 = val("cend"), note = val("cnote");
+      const date = val("cdate"), title = val("ctitle"), note = val("cnote"), loc = val("cloc");
+      const allDay = !!(document.getElementById("callday") || {}).checked;
+      const drive = +val("cdrive") || 0;
       if (!title) return UI.toast("Give it a name");
-      if (!/^\d\d:\d\d$/.test(s)) return UI.toast("Pick a start time");
-      const e = (/^\d\d:\d\d$/.test(e0) && DateU.toMin(e0) > DateU.toMin(s)) ? e0 : DateU.fromMin(DateU.toMin(s) + 60);
+      let s, e;
+      if (allDay) { s = "00:00"; e = "23:59"; }
+      else {
+        s = val("cstart"); const e0 = val("cend");
+        if (!/^\d\d:\d\d$/.test(s)) return UI.toast("Pick a start time");
+        e = (/^\d\d:\d\d$/.test(e0) && DateU.toMin(e0) > DateU.toMin(s)) ? e0 : DateU.fromMin(DateU.toMin(s) + 60);
+      }
       const dl = Store.day(date);
       dl.custom = dl.custom || [];
-      dl.custom.push({ id: Date.now().toString(36), s, e, title, note });
+      const id = Date.now().toString(36);
+      dl.custom.push({ id, s, e, title, note, loc, allDay });
+      // travel legs: there (at your chosen leave time) and, for timed events, back
+      let spanS = DateU.toMin(s), spanE = DateU.toMin(e);
+      if (loc && drive) {
+        const lv0 = val("cleave");
+        const lv = /^\d\d:\d\d$/.test(lv0) ? lv0 : (allDay ? "08:30" : DateU.fromMin(Math.max(0, DateU.toMin(s) - drive)));
+        dl.custom.push({ id: id + "a", parent: id, travel: true, loc, s: lv, e: DateU.fromMin(Math.min(1439, DateU.toMin(lv) + drive)), title: "Drive to " + loc });
+        spanS = Math.min(spanS, DateU.toMin(lv));
+        if (!allDay) {
+          const backE = Math.min(1439, DateU.toMin(e) + drive);
+          dl.custom.push({ id: id + "b", parent: id, travel: true, loc, s: e, e: DateU.fromMin(backE), title: "Drive home from " + loc });
+          spanE = Math.max(spanE, backE);
+        }
+      }
       Store.save(); App.closeSheets(); App.render();
+      // conflict pass: everything planned that this (plus the driving) runs over
       const dt = DATA.days.find((d) => d.dow === DateU.dow(date));
-      const clash = dt && dt.blocks.find((b) => !dl.skipped[b.s] &&
-        DateU.toMin(b.s) < DateU.toMin(e) && DateU.toMin(b.e) > DateU.toMin(s) &&
-        ["work", "rest", "wake"].indexOf(b.type) < 0);
-      UI.toast(clash ? "Added — heads up, it overlaps " + clash.title : "Added 📌");
+      const overl = dt ? dt.blocks.filter((b) => !dl.skipped[b.s] &&
+        DateU.toMin(b.s) < spanE && DateU.toMin(b.e) > spanS &&
+        ["wake", "rest"].indexOf(b.type) < 0) : [];
+      if (!overl.length) return UI.toast("Added 📌");
+      UI.sheet("Make room for " + title + "?",
+        '<p class="found"><b>' + UI.esc(title) + '</b>' + (allDay ? " takes the whole day" : (loc && drive ? " (driving included)" : "")) +
+          ' and runs over <b>' + overl.length + '</b> planned block' + (overl.length === 1 ? "" : "s") + ' on ' + DateU.fmt(date) +
+          '. Skip the ones you won\'t get to — uncheck anything you\'ll still do:</p>' +
+        overl.map((b) => '<label class="confl"><input type="checkbox" checked data-skipk="' + b.s + '">' +
+          '<span><b class="tabnum">' + DateU.time12c(b.s) + '–' + DateU.time12c(b.e) + '</b> &nbsp;' + UI.esc(b.title) + '</span></label>').join("") +
+        '<button class="btn btn-primary big" data-act="applyConflicts" data-date="' + date + '" data-t="' + UI.esc(title) + '">Skip checked &amp; make room</button>' +
+        '<button class="btn btn-ghost big" data-act="closeSheet">Keep everything</button>');
+    },
+    applyConflicts(el) {
+      const date = el.dataset.date;
+      let n = 0;
+      document.querySelectorAll(".sheet-back [data-skipk]").forEach((cb) => {
+        if (cb.checked) { Store.skipBlock(date, cb.dataset.skipk, "cleared for " + el.dataset.t); n++; }
+      });
+      App.closeSheets(); App.render();
+      UI.toast(n ? "Cleared " + n + " block" + (n === 1 ? "" : "s") + " — enjoy it 🎉" : "Kept everything");
     },
     delCustom(el) {
       const date = el.dataset.date || T();
-      UI.confirmDialog("Remove this from the day?", () => {
+      UI.confirmDialog("Remove this from the day? Any drive blocks that came with it go too.", () => {
         const dl = Store.day(date);
-        dl.custom = (dl.custom || []).filter((c) => c.id !== el.dataset.id);
-        delete dl.completed["cus" + el.dataset.id];
+        const id = el.dataset.id;
+        (dl.custom || []).forEach((c) => { if (c.id === id || c.parent === id) delete dl.completed["cus" + c.id]; });
+        dl.custom = (dl.custom || []).filter((c) => c.id !== id && c.parent !== id);
         Store.save(); App.render();
       }, "Remove");
     },
