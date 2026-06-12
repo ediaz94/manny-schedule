@@ -337,6 +337,23 @@ window.Act = (function () {
     bible() { Store.bumpBible(); App.render(); UI.toast("Bible episode #" + Store.get().settings.bibleEpisode); },
     mealEat(el) { Store.setMeal(T(), el.dataset.type, "eaten"); App.render(); },
     recipe(el) { UI.sheet(DATA.dinners[+el.dataset.i].name, Screens.recipeHTML(+el.dataset.i)); },
+    addFood() {
+      UI.sheet("Add food",
+        '<label class="field"><span>What did you eat?</span><input id="fdname" placeholder="e.g. Protein bar, handful of chips" autofocus></label>' +
+        '<label class="field"><span>Calories</span><input id="fdcal" class="big-in tabnum" type="number" inputmode="numeric"></label>' +
+        '<div class="presets">' + [100, 150, 200, 300, 500].map((c) => '<button type="button" class="chipbtn fdp" data-c="' + c + '">' + c + '</button>').join("") + '</div>' +
+        '<label class="field"><span>Protein (g, optional)</span><input id="fdprot" type="number" inputmode="numeric"></label>' +
+        '<button class="btn btn-primary big" data-act="saveFood">Add it</button>',
+        (body) => body.querySelectorAll(".fdp").forEach((b) => b.addEventListener("click", () => { body.querySelector("#fdcal").value = b.dataset.c; })));
+    },
+    saveFood() {
+      const name = val("fdname"), cal = num("fdcal");
+      if (!name) return UI.toast("Name it");
+      if (cal == null) return UI.toast("Enter calories");
+      Store.addFood(T(), { name, cal, protein: num("fdprot") || 0 });
+      App.closeSheets(); App.render(); UI.toast("Added " + cal + " cal");
+    },
+    delFood(el) { Store.delFood(T(), el.dataset.id); App.render(); },
 
     /* Grocery / prep */
     grocery(el) { Store.toggleGrocery(+el.dataset.i, el.dataset.field); App.render(); },
@@ -568,6 +585,8 @@ window.Act = (function () {
         '<label class="field"><span>Height (inches)</span><input id="pht" type="number" value="' + p.heightIn + '"></label>' +
         '<label class="field"><span>Starting weight</span><input id="psw" type="number" value="' + p.startWeight + '"></label>' +
         '<label class="field"><span>Target weight</span><input id="ptw" type="number" value="' + p.targetWeight + '"></label>' +
+        '<label class="field"><span>Daily calorie goal</span><input id="pcal" type="number" inputmode="numeric" value="' + (p.calorieTarget || 2100) + '"></label>' +
+        '<label class="field"><span>Daily protein goal (g)</span><input id="pprot" type="number" inputmode="numeric" value="' + (p.proteinTarget || 180) + '"></label>' +
         '<label class="field"><span>Wedding date</span><input id="pwd" type="date" value="' + p.weddingDate + '"></label>' +
         '<button class="btn btn-primary big" data-act="saveProfile">Save</button>');
     },
@@ -575,6 +594,7 @@ window.Act = (function () {
       const p = Store.get().profile;
       p.name = val("pname") || p.name; p.heightIn = num("pht") || p.heightIn;
       p.startWeight = num("psw") || p.startWeight; p.targetWeight = num("ptw") || p.targetWeight;
+      p.calorieTarget = num("pcal") || p.calorieTarget || 2100; p.proteinTarget = num("pprot") || p.proteinTarget || 180;
       p.weddingDate = val("pwd") || p.weddingDate; Store.save(); App.closeSheets(); App.render(); UI.toast("Profile updated");
     },
     setPin() {

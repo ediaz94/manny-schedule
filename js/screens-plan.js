@@ -381,6 +381,8 @@ window.Screens = window.Screens || {};
         '<div class="kv"><span>Height</span><b>' + Math.floor(p.heightIn / 12) + "′" + (p.heightIn % 12) + '″</b></div>' +
         '<div class="kv"><span>Starting weight</span><b>' + p.startWeight + ' lb</b></div>' +
         '<div class="kv"><span>Target weight</span><b>' + p.targetWeight + ' lb</b></div>' +
+        '<div class="kv"><span>Daily calorie goal</span><b>' + (p.calorieTarget || 2100).toLocaleString() + ' cal</b></div>' +
+        '<div class="kv"><span>Daily protein goal</span><b>' + (p.proteinTarget || 180) + ' g</b></div>' +
         '<div class="kv"><span>Wedding</span><b>' + DateU.fmtLong(p.weddingDate) + '</b></div>' +
         '<button class="link" data-act="editProfile">Edit profile ›</button>' +
       '</div>' +

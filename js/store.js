@@ -214,6 +214,15 @@ window.Store = (function () {
   function mealLog(dateISO) { const d = dateISO || DateU.today(); if (!state.mealLogs[d]) state.mealLogs[d] = {}; return state.mealLogs[d]; }
   function setMeal(dateISO, type, status) { const m = mealLog(dateISO); if (m[type] === status) delete m[type]; else m[type] = status; save(); }
   function setDinner(dow, idx) { state.dinnerPlan[dow] = idx; save(); }
+  function dayFoods(dateISO) { const dl = day(dateISO); if (!dl.foods) dl.foods = []; return dl.foods; }
+  function addFood(dateISO, f) { dayFoods(dateISO).push(Object.assign({ id: Date.now().toString(36) }, f)); save(); }
+  function delFood(dateISO, id) { const dl = day(dateISO); dl.foods = (dl.foods || []).filter((x) => x.id !== id); save(); }
+  function dayNutrition(dateISO) {
+    const ml = mealLog(dateISO); let cal = 0, protein = 0;
+    DATA.meals.forEach((m) => { if (ml[m.type] === "eaten") { cal += m.cal; protein += m.protein; } });
+    (day(dateISO).foods || []).forEach((f) => { cal += +f.cal || 0; protein += +f.protein || 0; });
+    return { cal, protein };
+  }
 
   function toggleGrocery(i, field) { const it = state.grocery.items[i]; it[field] = !it[field]; save(); }
   function resetGrocery() { state.grocery = seedGrocery(); save(); }
@@ -263,7 +272,7 @@ window.Store = (function () {
     load, save, get, day, toggleBlock, skipBlock, addWater, setPrayer,
     addWeight, latestWeight, uid, saveWorkout, lastWorkout, lastSet,
     getDraft, setDraftSet, clearDraft,
-    mealLog, setMeal, setDinner, toggleGrocery, resetGrocery,
+    mealLog, setMeal, setDinner, dayFoods, addFood, delFood, dayNutrition, toggleGrocery, resetGrocery,
     addFintech, toggleMilestone, fintechHoursWeek,
     setTaskStatus, addTask, setTask, deleteTask, addPerson, saveVendor, saveMemoriam,
     setMass, massFor, bumpBible, addReview, reviewFor, addDateNight, dateNightsInMonth,

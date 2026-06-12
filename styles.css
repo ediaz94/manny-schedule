@@ -117,6 +117,25 @@ a.nudge{text-decoration:none}
 .time.allday{font-size:11px; font-weight:800; color:var(--purple); text-align:right; padding:14px 8px 0 0; white-space:nowrap}
 .time.allday .te2{display:block; font-size:10px; opacity:.7; margin-top:2px}
 
+/* ---- Calorie tracker ------------------------------------------------ */
+.stat.cal{text-decoration:none}
+.calcard .calbig{font-size:14px; margin-bottom:6px}
+.calcard .calbig b{font-size:27px; color:var(--sage); font-weight:800}
+.calbar{height:10px; background:#E9EFEA; border-radius:99px; overflow:hidden; margin:5px 0}
+.calbar.sm{height:7px; margin-top:5px}
+.calbar i{display:block; height:100%; background:var(--sage); border-radius:99px}
+.calbar i.over{background:var(--error)}
+.calbar i.prot{background:var(--purple)}
+.calmeta{display:flex; justify-content:space-between; font-size:12.5px; font-weight:800; color:var(--sage); margin-top:5px}
+.calmeta .muted{font-weight:600}
+.overtxt{color:var(--error)}
+.protrow{display:flex; justify-content:space-between; font-weight:700; font-size:14px; margin-top:14px}
+.xhead{font-size:12px; font-weight:800; color:var(--ink-2); text-transform:uppercase; letter-spacing:.05em; margin:14px 2px 6px}
+.xfood{display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:9px 12px; margin:6px 0}
+.xfood .xn{flex:1; font-size:14px}
+.xfood .xc{font-size:12.5px; color:var(--ink-2); font-weight:700}
+.cal.counted{color:var(--success); font-weight:800}
+
 /* ---- Finished-early sheet ------------------------------------------- */
 .found{font-size:14.5px; color:var(--ink-2); margin:4px 0 12px; line-height:1.55}
 .found b{color:var(--ink)}

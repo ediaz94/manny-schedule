@@ -164,7 +164,7 @@ window.Screens = window.Screens || {};
     const stats = !isToday ? "" :
       '<div class="stats">' +
         '<div class="stat"><b class="tabnum">' + doneCount + '/' + items.length + '</b><span>blocks done</span></div>' +
-        '<div class="stat water"><b class="tabnum">' + dl.hydration + '<small>/' + target + '</small></b><span>oz water</span></div>' +
+        '<a class="stat cal" href="#/meals"><b class="tabnum">' + Store.dayNutrition(date).cal + '<small>/' + (Store.get().profile.calorieTarget || 2100) + '</small></b><span>🔥 calories</span></a>' +
         '<div class="stat"><b>' + (dt.workoutType ? '🏋️' : '🌙') + '</b><span>' + (dt.workoutType ? 'workout day' : 'rest day') + '</span></div>' +
       '</div>';
 
@@ -477,8 +477,32 @@ window.Screens = window.Screens || {};
           '<div class="d">' + body + '</div>' +
           (m.type === "dinner" ? '<button class="link" data-act="recipe" data-i="' + dinnerIdx + '">View recipe ›</button>' : "") +
           (m.alt ? '<div class="alt">or: ' + esc(m.alt) + '</div>' : "") +
-        '</div><span class="cal">' + m.cal + ' cal</span></div>';
+        '</div><span class="cal' + (eaten ? ' counted' : '') + '">' + (eaten ? "✓ " : "") + m.cal + ' cal</span></div>';
     }).join("");
+
+    // Calorie + protein tracker
+    const prof = Store.get().profile;
+    const calTgt = prof.calorieTarget || 2100, protTgt = prof.proteinTarget || 180;
+    const nut = Store.dayNutrition(date);
+    const over = nut.cal > calTgt;
+    const foods = Store.day(date).foods || [];
+    const extras = foods.map((f) =>
+      '<div class="xfood"><span class="xn">' + esc(f.name) + '</span>' +
+        '<span class="xc tabnum">' + (f.cal || 0) + ' cal' + (f.protein ? ' · ' + f.protein + 'g' : '') + '</span>' +
+        '<button class="oosbtn" data-act="delFood" data-id="' + f.id + '">✕</button></div>').join("");
+    const calCard =
+      '<div class="card2 calcard">' +
+        '<div class="card2-h">Calories today <span class="muted">goal ' + calTgt.toLocaleString() + '</span></div>' +
+        '<div class="calbig tabnum"><b>' + nut.cal.toLocaleString() + '</b> <span class="muted">/ ' + calTgt.toLocaleString() + ' cal</span></div>' +
+        '<div class="calbar"><i class="' + (over ? "over" : "") + '" style="width:' + Math.min(100, nut.cal / calTgt * 100).toFixed(0) + '%"></i></div>' +
+        '<div class="calmeta">' +
+          (over ? '<span class="overtxt">' + (nut.cal - calTgt).toLocaleString() + ' over goal</span>' : '<span>' + (calTgt - nut.cal).toLocaleString() + ' cal left</span>') +
+          '<span class="muted">checked meals + extras</span></div>' +
+        '<div class="protrow"><span>💪 Protein</span><b class="tabnum">' + nut.protein + ' / ' + protTgt + ' g</b></div>' +
+        '<div class="calbar sm"><i class="prot" style="width:' + Math.min(100, nut.protein / protTgt * 100).toFixed(0) + '%"></i></div>' +
+        (extras ? '<div class="xhead">Extra foods</div>' + extras : "") +
+        '<button class="btn btn-ghost" data-act="addFood" style="margin-top:12px">➕ Add food / snack</button>' +
+      '</div>';
 
     return '<div class="screen">' + subbar("Meals", "#/more") + '<div class="wrap">' +
       '<div class="tiles">' +
@@ -486,7 +510,8 @@ window.Screens = window.Screens || {};
         '<a class="tile" href="#/meals/grocery">🛒<span>Grocery list</span></a>' +
         '<a class="tile" href="#/meals/prep">🍱<span>Meal prep</span></a>' +
       '</div>' +
-      '<div class="sec-h">Today\'s meals</div>' + meals +
+      calCard +
+      '<div class="sec-h">Today\'s meals <span class="muted" style="font-weight:600;text-transform:none;letter-spacing:0">tap ✓ to count it</span></div>' + meals +
       '</div></div>';
   };
 

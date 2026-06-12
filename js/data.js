@@ -15,7 +15,9 @@ window.DATA = (function () {
     weddingVenue: "Sacred Heart",
     receptionVenue: "Charles H. Morris Center",
     hydrationTargetOz: 120,
-    fintechWeeklyHours: 5.5
+    fintechWeeklyHours: 5.5,
+    calorieTarget: 2100,
+    proteinTarget: 180
   };
 
   /* ---- Phases --------------------------------------------------------- */
