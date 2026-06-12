@@ -14,6 +14,84 @@ window.Screens = window.Screens || {};
     return ({ 6: "june", 7: "july", 8: "august", 9: "september", 10: "october", 11: "nov-week" })[m] || "all";
   }
 
+  /* ---- Overdue wedding tasks: month ended, still open ----------------- */
+  const MONTH_END = { june: "2026-06-30", july: "2026-07-31", august: "2026-08-31", september: "2026-09-30", october: "2026-10-31", "nov-week": "2026-11-06" };
+  S.weddingOverdue = function () {
+    const today = DateU.today();
+    const out = { count: 0, oldest: null };
+    Store.get().weddingTasks.forEach((t) => {
+      if (t.status === "done") return;
+      if (MONTH_END[t.month] && MONTH_END[t.month] < today) { out.count++; if (!out.oldest) out.oldest = t.month; }
+    });
+    return out;
+  };
+  function overdueBanner(tappable) {
+    const wo = S.weddingOverdue();
+    if (!wo.count) return "";
+    return '<div class="nudge warn' + (tappable ? ' tap" data-act="weddingCatchup" data-m="' + wo.oldest + '" role="button' : '') + '">' +
+      '<span>⏰</span><p>' + wo.count + ' task' + (wo.count === 1 ? "" : "s") + ' slipped past ' + esc(DATA.monthLabels[wo.oldest]) +
+      (wo.count === 1 ? " and is" : " and are") + ' still open — knock ' + (wo.count === 1 ? "it" : "them") + ' out this week.</p>' +
+      (tappable ? '<span class="nchev">›</span>' : '') + '</div>';
+  }
+
+  /* ===================== WEDDING BUSY MAP ===================== */
+  // Heat per day: open tasks for that month spread the pressure; Saturday
+  // power blocks and Tue/Thu check-ins add weight; pinned events add more.
+  // Finish tasks → the month visibly cools down.
+  function heatLevel(iso, openByMonth) {
+    const d = DateU.parse(iso); const m = d.getMonth() + 1;
+    const mk = ({ 6: "june", 7: "july", 8: "august", 9: "september", 10: "october" })[m] || (m === 11 ? "nov-week" : null);
+    if (!mk) return 0;
+    let h = (openByMonth[mk] || 0) * 0.35;
+    const dow = d.getDay();
+    if (dow === 6) h += 1.2;
+    if (dow === 2 || dow === 4) h += 0.5;
+    const dl = Store.get().dayLogs[iso];
+    if (dl && dl.custom && dl.custom.length) h += dl.custom.length * 0.8;
+    if (mk === "nov-week") h += 1;
+    return h >= 3.4 ? 4 : h >= 2.4 ? 3 : h >= 1.4 ? 2 : h >= 0.6 ? 1 : 0;
+  }
+  S.weddingCal = function () {
+    const st = Store.get();
+    const today = DateU.today();
+    const openByMonth = {};
+    st.weddingTasks.forEach((t) => { if (t.status !== "done") openByMonth[t.month] = (openByMonth[t.month] || 0) + 1; });
+    const monthKeys = { 6: "june", 7: "july", 8: "august", 9: "september", 10: "october", 11: "nov-week" };
+    const MN = ["June", "July", "August", "September", "October", "November"];
+    const WD = ["S", "M", "T", "W", "T", "F", "S"];
+    let cal = "";
+    for (let m = 6; m <= 11; m++) {
+      const mm = String(m).padStart(2, "0");
+      const dim = m === 11 ? 6 : new Date(2026, m, 0).getDate(); // stop after Nov 6
+      const off = DateU.dow("2026-" + mm + "-01");
+      let cells = WD.map((w) => '<span class="cal-w">' + w + '</span>').join("");
+      for (let i = 0; i < off; i++) cells += '<span class="cal-c empty"></span>';
+      for (let d = 1; d <= dim; d++) {
+        const iso = "2026-" + mm + "-" + String(d).padStart(2, "0");
+        const lvl = heatLevel(iso, openByMonth);
+        const isWed = iso === "2026-11-06";
+        cells += '<button class="cal-c h' + lvl + (iso < today ? " past" : "") + (iso === today ? " today" : "") + (isWed ? " wedding" : "") +
+          '" data-act="calDay" data-date="' + iso + '">' + (isWed ? "💍" : d) + '</button>';
+      }
+      const open = openByMonth[monthKeys[m]] || 0;
+      cal += '<div class="cal-month"><div class="cal-h">' + MN[m - 6] +
+        '<span class="muted">' + (open ? open + " open task" + (open === 1 ? "" : "s") : "all clear ✓") + '</span></div>' +
+        '<div class="cal-grid">' + cells + '</div></div>';
+    }
+    const legend =
+      '<div class="cal-legend">' +
+        '<span><i style="background:#F2EFE8"></i>calm</span>' +
+        '<span><i style="background:#DEEAE1"></i>light</span>' +
+        '<span><i style="background:#F3E5BC"></i>busy</span>' +
+        '<span><i style="background:#EFCD92"></i>loaded</span>' +
+        '<span><i style="background:#E8A9A9"></i>packed</span>' +
+      '</div>';
+    return '<div class="screen">' + subbar("Busy Map", "#/wedding") + '<div class="wrap">' +
+      '<p class="muted intro">Color = how loaded each day is between now and "I do." Knock out tasks and watch the months cool off. Tap any day to open it in the planner.</p>' +
+      legend + overdueBanner(true) + cal +
+      '</div></div>';
+  };
+
   /* ===================== WEDDING ===================== */
   S.wedding = function () {
     const st = Store.get();
@@ -55,11 +133,13 @@ window.Screens = window.Screens || {};
           '<div class="stat"><b class="tabnum">' + done + '</b><span>done</span></div>' +
           '<div class="stat"><b class="tabnum">$' + contracted.toLocaleString() + '</b><span>contracted</span></div>' +
         '</div>' +
-        '<div class="tiles">' +
+        '<div class="tiles t4">' +
+          '<a class="tile" href="#/wedding/calendar">📆<span>Busy map</span></a>' +
           '<a class="tile" href="#/wedding/vendors">🤝<span>Vendors</span></a>' +
           '<a class="tile" href="#/wedding/memoriam">🕯️<span>In Memoriam</span></a>' +
           '<button class="tile" data-act="addTask">➕<span>Add task</span></button>' +
         '</div>' +
+        overdueBanner(true) +
         '<div class="filters">' +
           '<select class="sel" data-act="taskMonth">' + monthOpts + '</select>' +
           UI.segmented([{ v: "all", t: "All" }, { v: "open", t: "Open" }, { v: "done", t: "Done" }], fs, "taskStatus") +
@@ -154,10 +234,10 @@ window.Screens = window.Screens || {};
     const ta = (id, label, ph) => '<label class="rfield"><span>' + label + '</span><textarea id="' + id + '" rows="2" placeholder="' + ph + '">' + esc(saved[id] || "") + '</textarea></label>';
 
     const past = st.reviews.slice().sort((a, b) => a.week < b.week ? 1 : -1).slice(0, 6).map((r) =>
-      '<div class="wrow"><span class="b">Week of ' + DateU.fmtShort(r.week) + '</span><span class="muted">' + r.workouts + ' workouts · ' + (r.prayer != null ? r.prayer + ' prayer days' : (r.fintech || 0) + 'h') + '</span></div>').join("");
+      '<div class="wrow"><span class="b tabnum">' + DateU.fmtShort(r.week) + ' – ' + DateU.fmtShort(DateU.addDays(r.week, 6)) + '</span><span class="muted">' + r.workouts + ' workouts · ' + (r.prayer != null ? r.prayer + ' prayer days' : (r.fintech || 0) + 'h') + '</span></div>').join("");
 
     return '<div class="screen">' + subbar("Weekly Review", "#/stats") + '<div class="wrap">' +
-      '<p class="muted intro">Sunday, 5 minutes, be honest. Week of ' + DateU.fmtShort(wk) + '.</p>' +
+      '<p class="muted intro">Sunday, 5 minutes, be honest. This week: <b class="tabnum">' + DateU.fmtShort(wk) + ' – ' + DateU.fmtShort(end) + '</b>.</p>' +
       '<div class="stats4">' +
         '<div class="stat"><b class="tabnum">' + workouts + '/6</b><span>workouts</span></div>' +
         '<div class="stat"><b class="tabnum">' + lunches + '/5</b><span>lunches</span></div>' +

@@ -172,7 +172,7 @@ window.Screens = window.Screens || {};
     const nudgeHtml = nds.map((n) => {
       const tap = n.act || n.href;
       const tag = n.href ? "a" : "div";
-      const attr = n.href ? ' href="' + n.href + '"' : (n.act ? ' data-act="' + n.act + '" role="button"' : "");
+      const attr = n.href ? ' href="' + n.href + '"' : (n.act ? ' data-act="' + n.act + '"' + (n.m ? ' data-m="' + n.m + '"' : '') + ' role="button"' : "");
       return '<' + tag + ' class="nudge' + (n.w ? ' warn' : '') + (tap ? ' tap' : '') + '"' + attr + '>' +
         '<span>' + n.i + '</span><p>' + esc(n.t) + '</p>' + (tap ? '<span class="nchev">›</span>' : '') +
       '</' + tag + '>';
@@ -230,6 +230,11 @@ window.Screens = window.Screens || {};
     const dn = dinnerIdx != null ? DATA.dinners[dinnerIdx] : null;
     if (dn && dn.defrost && nowM >= 360 && nowM < 720)
       out.push({ i: "🧊", w: 0, t: "Tonight is " + dn.name + " — take the " + dn.defrost + " out of the freezer before you head out." });
+    // Overdue wedding tasks: their month ended and they're still open
+    const wo = Screens.weddingOverdue ? Screens.weddingOverdue() : { count: 0 };
+    if (wo.count)
+      out.push({ i: "💍", w: 1, act: "weddingCatchup", m: wo.oldest,
+        t: wo.count + " wedding task" + (wo.count === 1 ? "" : "s") + " from " + DATA.monthLabels[wo.oldest] + (wo.count === 1 ? " is" : " are") + " still open — tap to catch up." });
     // Water pacing: 10 AM – 9 PM, expects steady sipping from wake to bedtime
     if (nowM >= 600 && nowM <= 1260) {
       const tgt = DATA.profile.hydrationTargetOz;

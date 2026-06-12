@@ -10,7 +10,7 @@ window.App = (function () {
     "weight": S.weight,
     "meals": S.meals, "meals/rotation": S.dinnerRotation, "meals/grocery": S.grocery, "meals/prep": S.mealPrep,
     "fintech": S.fintech,
-    "wedding": S.wedding, "wedding/vendors": S.vendors, "wedding/memoriam": S.memoriam,
+    "wedding": S.wedding, "wedding/vendors": S.vendors, "wedding/memoriam": S.memoriam, "wedding/calendar": S.weddingCal,
     "faith": S.faith, "review": S.review, "stats": S.stats, "more": S.more, "settings": S.settings
   };
   const ui = {}; // transient view state (filters, selected exercise)
@@ -178,6 +178,19 @@ window.Act = (function () {
     restoreBlock(el) {
       const date = el.dataset.date || T();
       const dl = Store.day(date); delete dl.skipped[el.dataset.k]; Store.save(); App.render();
+    },
+    /* Busy map: tap a day → open it in the planner */
+    calDay(el) {
+      const d = el.dataset.date;
+      App.ui.viewDate = d === T() ? null : d;
+      if (location.hash === "#/" || location.hash === "") App.render(); else location.hash = "#/";
+    },
+    /* Overdue banner: jump to the slipped month's open tasks */
+    weddingCatchup(el) {
+      App.ui.taskMonth = el.dataset.m || "all";
+      App.ui.taskStatus = "open";
+      App.closeSheets();
+      if (location.hash === "#/wedding") App.render(); else location.hash = "#/wedding";
     },
     /* Finished a block early? Offer found-time ideas + shifting the rest of
        the day earlier. Fires once per block per day. */
