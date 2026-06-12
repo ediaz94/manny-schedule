@@ -93,8 +93,24 @@ window.Store = (function () {
       reviews: [],
       seenPhase: {},
       people: [],
-      foodDb: DATA.foods.map((f, i) => Object.assign({ id: i }, f))
+      foodDb: DATA.foods.map((f, i) => Object.assign({ id: i }, f)),
+      foodDbVersion: DATA.foodSeedVersion
     };
+  }
+  // Add new seed foods to a user's saved library (by name) without touching
+  // foods they edited or added. Runs once per seed version bump.
+  function migrateFoodDb() {
+    if (!state.foodDb) state.foodDb = DATA.foods.map((f, i) => Object.assign({ id: i }, f));
+    if (state.foodDbVersion === DATA.foodSeedVersion) return;
+    const have = {};
+    state.foodDb.forEach((f) => { have[(f.n || "").toLowerCase()] = true; });
+    let nextId = Math.max(-1, ...state.foodDb.map((f) => f.id)) + 1;
+    DATA.foods.forEach((f) => {
+      const k = (f.n || "").toLowerCase();
+      if (!have[k]) { state.foodDb.push(Object.assign({ id: nextId++ }, f)); have[k] = true; }
+    });
+    state.foodDbVersion = DATA.foodSeedVersion;
+    save();
   }
   function seedDinnerPlan() {
     const plan = {};
@@ -125,6 +141,7 @@ window.Store = (function () {
   function load() {
     try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
     if (!state) { state = defaults(); save(); }
+    migrateFoodDb(); // merge new seed foods before the generic key-fill below
     const d = defaults();
     for (const k in d) if (!(k in state)) state[k] = d[k];
     // one-time upgrade: older grocery lists predate the dinner-ingredient section

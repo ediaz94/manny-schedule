@@ -501,7 +501,10 @@ window.DATA = (function () {
   /* ---- Offline food database (for the plain-English calorie lookup) ---
      n=name, u=unit shown, cal+p(rotein) per ONE unit, k=keywords (lowercase;
      matched by substring so plurals like "eggs" hit "egg"). Edit/extend freely. */
-  const foods = [
+  // bump when js/foods.js changes, so saved data re-merges new foods
+  const foodSeedVersion = 2;
+  // 1,300+ foods come from js/foods.js (window.FOODS); inline list below is a fallback
+  const foods = (window.FOODS && window.FOODS.length) ? window.FOODS : [
     // eggs & breakfast
     { n: "Hard-boiled egg", u: "egg", cal: 78, p: 6, k: ["hard boiled egg", "hardboiled egg", "boiled egg", "egg"] },
     { n: "Fried egg", u: "egg", cal: 90, p: 6, k: ["fried egg"] },
@@ -600,6 +603,6 @@ window.DATA = (function () {
   return {
     profile, phases, blockIcon, mealEmojiByTitle, days, workouts, meals, dinners,
     mealPrepTasks, grocery, fintechModules, fintechMilestones, weddingTasks, monthLabels,
-    vendors, memoriam, foods
+    vendors, memoriam, foods, foodSeedVersion
   };
 })();

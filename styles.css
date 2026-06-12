@@ -140,6 +140,24 @@ a.nudge{text-decoration:none}
 .pftot{display:flex; justify-content:space-between; padding:11px 12px; background:#EFF5EF; border:1px solid #CFE3CF; border-radius:10px; margin:8px 0; font-weight:800; font-size:15px; color:var(--sage)}
 .pfun{font-size:12.5px; color:var(--warning); background:#FBF7EE; border:1px solid #ECE0C6; border-radius:10px; padding:9px 11px; margin:6px 0; line-height:1.45}
 .fdman{margin-top:14px; border-top:1px dashed var(--border); padding-top:10px}
+.fdmore{margin-top:12px; border-top:1px dashed var(--border); padding-top:8px}
+.fdmore summary{font-weight:700; font-size:13.5px; color:var(--purple); cursor:pointer; list-style:none}
+.fdmore summary::-webkit-details-marker{display:none}
+.fdmore textarea{margin:8px 0}
+.fdsug{max-height:46vh; overflow-y:auto}
+.fdsug-i{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 13px; margin:5px 0; cursor:pointer; font-family:inherit}
+.fdsug-i .si-n{font-size:14.5px; font-weight:600}
+.fdsug-i .si-c{font-size:12.5px; color:var(--sage); font-weight:700; white-space:nowrap}
+.fdno{font-size:12.5px; color:var(--ink-2); padding:8px 4px; text-align:center}
+.fdcart:not(:empty){margin:10px 0; background:#F7F4F0; border:1px solid var(--border); border-radius:14px; padding:12px}
+.cart-h{font-size:12px; font-weight:800; color:var(--ink-2); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px}
+.cartrow{display:flex; align-items:center; gap:8px; padding:7px 0}
+.cartrow .cr-n{flex:1; min-width:0; font-size:14px; font-weight:600}
+.cartrow .cr-q{display:flex; align-items:center; gap:8px}
+.cartrow .cr-q button{width:28px; height:28px; border-radius:50%; border:1px solid var(--border); background:#fff; font-size:16px; font-weight:800; color:var(--sage); cursor:pointer; line-height:1; padding:0}
+.cartrow .cr-q b{min-width:18px; text-align:center}
+.cartrow .cr-c{font-size:12.5px; color:var(--ink-2); font-weight:700; min-width:42px; text-align:right}
+.cartrow .cr-x{border:none; background:none; color:var(--error); font-size:14px; cursor:pointer; padding:4px}
 .foodsearch{width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:12px; font-size:16px; font-family:inherit; background:#fff; margin-bottom:10px}
 .frow{display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:11px; padding:11px 13px; margin:6px 0; cursor:pointer}
 .frow-b{flex:1; min-width:0}

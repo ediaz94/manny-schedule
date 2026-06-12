@@ -338,19 +338,81 @@ window.Act = (function () {
     mealEat(el) { Store.setMeal(T(), el.dataset.type, "eaten"); App.render(); },
     recipe(el) { UI.sheet(DATA.dinners[+el.dataset.i].name, Screens.recipeHTML(+el.dataset.i)); },
     addFood() {
+      App.ui._cart = [];
       UI.sheet("Add food",
-        '<label class="field"><span>Type what you ate — plain English</span>' +
-          '<textarea id="fdtext" rows="2" placeholder="2 hard-boiled eggs and 2 sourdough toast"></textarea></label>' +
-        '<button type="button" class="btn btn-ghost big" data-act="lookupFood">🔎 Look up the calories</button>' +
-        '<div id="fdresults" class="fdresults"></div>' +
-        '<div class="fdman"><button type="button" class="link" data-act="foodManual">or enter the calories myself ›</button>' +
-          '<div id="fdmanwrap" style="display:none">' +
-            '<label class="field"><span>Food</span><input id="fdname" placeholder="e.g. Protein bar"></label>' +
-            '<label class="field"><span>Calories</span><input id="fdcal" class="big-in tabnum" type="number" inputmode="numeric"></label>' +
-            '<div class="presets">' + [100, 150, 200, 300, 500].map((c) => '<button type="button" class="chipbtn" data-act="foodPreset" data-c="' + c + '">' + c + '</button>').join("") + '</div>' +
-            '<label class="field"><span>Protein (g, optional)</span><input id="fdprot" type="number" inputmode="numeric"></label>' +
-            '<button class="btn btn-primary big" data-act="saveFood">Add it</button>' +
-          '</div></div>');
+        '<label class="field"><span>Search a food</span>' +
+          '<input id="fdsearch" placeholder="e.g. chicken tenders, churro, fried catfish" autocomplete="off" autofocus></label>' +
+        '<div id="fdsug" class="fdsug"></div>' +
+        '<div id="fdcart" class="fdcart"></div>' +
+        '<details class="fdmore"><summary>Type a whole meal in plain English</summary>' +
+          '<textarea id="fdtext" rows="2" placeholder="2 eggs and 2 sourdough toast"></textarea>' +
+          '<button type="button" class="btn btn-ghost" data-act="lookupFood">🔎 Look up</button>' +
+          '<div id="fdresults" class="fdresults"></div></details>' +
+        '<details class="fdmore"><summary>Enter the calories myself</summary>' +
+          '<label class="field"><span>Food</span><input id="fdname" placeholder="e.g. Protein bar"></label>' +
+          '<label class="field"><span>Calories</span><input id="fdcal" class="big-in tabnum" type="number" inputmode="numeric"></label>' +
+          '<div class="presets">' + [100, 150, 200, 300, 500].map((c) => '<button type="button" class="chipbtn" data-act="foodPreset" data-c="' + c + '">' + c + '</button>').join("") + '</div>' +
+          '<label class="field"><span>Protein (g, optional)</span><input id="fdprot" type="number" inputmode="numeric"></label>' +
+          '<button class="btn btn-primary big" data-act="saveFood">Add it</button>' +
+        '</details>');
+    },
+    foodSuggest(q) {
+      const sug = document.getElementById("fdsug"); if (!sug) return;
+      q = (q || "").toLowerCase().trim();
+      if (q.length < 2) { sug.innerHTML = ""; return; }
+      const toks = q.split(/\s+/), db = Store.foodDb(), scored = [];
+      for (let i = 0; i < db.length; i++) {
+        const f = db[i], hay = (f.n + " " + (f.k || []).join(" ")).toLowerCase();
+        if (!toks.every((t) => hay.indexOf(t) >= 0)) continue;
+        const nl = f.n.toLowerCase();
+        scored.push({ f: f, s: nl.indexOf(q) === 0 ? 0 : nl.indexOf(q) >= 0 ? 1 : 2 });
+      }
+      scored.sort((a, b) => a.s - b.s || a.f.n.length - b.f.n.length || (a.f.n < b.f.n ? -1 : 1));
+      if (!scored.length) { sug.innerHTML = '<div class="fdno">No match — add it under “Enter the calories myself” below.</div>'; return; }
+      sug.innerHTML = scored.slice(0, 12).map((x) =>
+        '<button type="button" class="fdsug-i" data-act="pickFood" data-id="' + x.f.id + '"><span class="si-n">' + UI.esc(x.f.n) +
+        ' <span class="muted">(' + UI.esc(x.f.u) + ')</span></span><span class="si-c tabnum">' + x.f.cal + ' cal</span></button>').join("") +
+        (scored.length > 12 ? '<div class="fdno">' + scored.length + ' matches — keep typing to narrow it down.</div>' : "");
+    },
+    pickFood(el) {
+      const id = +el.dataset.id; App.ui._cart = App.ui._cart || [];
+      const c = App.ui._cart.find((x) => x.id === id);
+      if (c) c.qty++; else App.ui._cart.push({ id: id, qty: 1 });
+      const s = document.getElementById("fdsearch"); if (s) { s.value = ""; s.focus(); }
+      const sug = document.getElementById("fdsug"); if (sug) sug.innerHTML = "";
+      Act._renderCart();
+    },
+    _renderCart() {
+      const el = document.getElementById("fdcart"); if (!el) return;
+      const cart = App.ui._cart || [];
+      if (!cart.length) { el.innerHTML = ""; return; }
+      const db = Store.foodDb(), qf = (q) => q === 0.5 ? "½" : String(q);
+      let cal = 0, p = 0;
+      const rows = cart.map((c) => {
+        const f = db.find((x) => x.id === c.id); if (!f) return "";
+        cal += f.cal * c.qty; p += (f.p || 0) * c.qty;
+        return '<div class="cartrow"><span class="cr-n">' + UI.esc(f.n) + '</span>' +
+          '<span class="cr-q"><button type="button" data-act="cartQty" data-id="' + c.id + '" data-d="-1">−</button>' +
+          '<b class="tabnum">' + qf(c.qty) + '</b><button type="button" data-act="cartQty" data-id="' + c.id + '" data-d="1">+</button></span>' +
+          '<span class="cr-c tabnum">' + Math.round(f.cal * c.qty) + '</span>' +
+          '<button class="cr-x" data-act="cartDel" data-id="' + c.id + '">✕</button></div>';
+      }).join("");
+      el.innerHTML = '<div class="cart-h">Selected</div>' + rows +
+        '<div class="pftot"><span>Total</span><b class="tabnum">' + Math.round(cal) + ' cal · ' + Math.round(p) + ' g</b></div>' +
+        '<button class="btn btn-primary big" data-act="addCart">Add to today</button>';
+    },
+    cartQty(el) {
+      const id = +el.dataset.id, d = +el.dataset.d, cart = App.ui._cart || [];
+      const c = cart.find((x) => x.id === id); if (!c) return;
+      if (d < 0 && c.qty <= 1) App.ui._cart = cart.filter((x) => x.id !== id); else c.qty += d;
+      Act._renderCart();
+    },
+    cartDel(el) { App.ui._cart = (App.ui._cart || []).filter((x) => x.id !== +el.dataset.id); Act._renderCart(); },
+    addCart() {
+      const cart = App.ui._cart || [], db = Store.foodDb(), qf = (q) => q === 0.5 ? "½" : String(q);
+      let n = 0;
+      cart.forEach((c) => { const f = db.find((x) => x.id === c.id); if (!f) return; Store.addFood(T(), { name: qf(c.qty) + "× " + f.n, cal: Math.round(f.cal * c.qty), protein: Math.round((f.p || 0) * c.qty) }); n++; });
+      App.ui._cart = null; App.closeSheets(); App.render(); UI.toast(n ? "Added " + n + " item" + (n === 1 ? "" : "s") + " 🍽️" : "Pick a food first");
     },
     foodManual() { const w = document.getElementById("fdmanwrap"); if (!w) return; w.style.display = w.style.display === "none" ? "" : "none"; if (w.style.display === "") { const n = document.getElementById("fdname"); if (n) n.focus(); } },
     foodPreset(el) { const c = document.getElementById("fdcal"); if (c) c.value = el.dataset.c; },
@@ -786,6 +848,7 @@ document.addEventListener("change", function (e) {
 let stashTimer;
 document.addEventListener("input", function (e) {
   const el = e.target;
+  if (el.id === "fdsearch") { Act.foodSuggest(el.value); return; }
   if (el.id === "foodq") {
     const q = el.value.toLowerCase().trim();
     let n = 0;
