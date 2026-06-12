@@ -31,7 +31,11 @@ a{color:inherit}
 .topbar h1{font-size:23px; font-weight:800; margin:0; letter-spacing:-.02em}
 .topbar.sub h1{font-size:18px; text-align:center; flex:1}
 .back{font-size:30px; line-height:1; text-decoration:none; color:var(--sage); width:30px; font-weight:300}
-.datepill{font-size:13px; font-weight:600; color:var(--sage); background:#EAF0EC; border:1px solid #D4E0D8; padding:6px 12px; border-radius:999px; text-decoration:none}
+.datepill{font-size:13px; font-weight:600; color:var(--sage); background:#EAF0EC; border:1px solid #D4E0D8; padding:6px 12px; border-radius:999px; text-decoration:none; font-family:inherit; cursor:pointer}
+.dnav{display:flex; align-items:center; gap:6px}
+.dnav-b{width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:#fff; color:var(--sage); font-size:18px; font-weight:700; cursor:pointer; line-height:1; padding:0}
+.check.off{border-style:dashed; color:var(--rail); background:transparent; cursor:default}
+.row.is-cus .card{border-style:dashed; border-color:#CDB9DA; background:#FCFBFD}
 .screen{padding-bottom:90px}
 .wrap{padding:16px}
 .sec-h{font-size:13px; font-weight:800; color:var(--ink-2); text-transform:uppercase; letter-spacing:.06em; margin:18px 4px 10px}
@@ -48,7 +52,7 @@ a{color:inherit}
 .btn.pulse{animation:bpulse 1.8s infinite}
 @keyframes bpulse{0%,100%{box-shadow:0 0 0 0 rgba(139,114,152,.4)}50%{box-shadow:0 0 0 8px rgba(139,114,152,0)}}
 .cta{display:flex; gap:10px} .cta .btn{flex:1}
-.row-btns{display:flex; gap:8px; margin-top:10px} .row-btns .btn{flex:1}
+.row-btns{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap} .row-btns .btn{flex:1 1 30%; padding:11px 8px; font-size:14px}
 .link{background:none; border:none; color:var(--purple); font-weight:700; font-size:14px; padding:6px 0; cursor:pointer; font-family:inherit}
 .chipbtn{background:#EAF0EC; color:var(--sage); border:1px solid #D4E0D8; border-radius:10px; padding:9px 14px; font-weight:800; font-size:14px; cursor:pointer; font-family:inherit}
 .chipbtn.ghost{background:#fff; color:var(--ink-2)}

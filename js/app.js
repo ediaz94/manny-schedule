@@ -107,13 +107,77 @@ window.Act = (function () {
   const A = {
     closeSheet() { App.closeSheets(); },
 
-    /* Today */
+    /* Today / Planner */
     toggleBlock(el) {
       const key = el.dataset.k;
-      const wasDone = !!Store.day(T()).completed[key];
-      Store.toggleBlock(T(), key);
+      const date = el.dataset.date || T();
+      const wasDone = !!Store.day(date).completed[key];
+      Store.toggleBlock(date, key);
       App.render();
-      if (!wasDone) Act.maybeEarlyFinish(key); // only when marking done, not undoing
+      if (!wasDone && date === T()) Act.maybeEarlyFinish(key); // only real-time completions
+    },
+    dayNav(el) {
+      const cur = App.ui.viewDate || T();
+      const nd = DateU.addDays(cur, +el.dataset.d);
+      App.ui.viewDate = nd === T() ? null : nd;
+      App.render();
+    },
+    jumpToday() { App.ui.viewDate = null; App.closeSheets(); App.render(); },
+    pickDate() {
+      const v = App.ui.viewDate || T();
+      UI.sheet("Jump to a date",
+        '<label class="field"><span>See your plan for any day</span><input type="date" id="jumpdate" value="' + v + '"></label>' +
+        '<button class="btn btn-primary big" data-act="jumpDate">Go</button>' +
+        '<button class="btn btn-ghost big" data-act="jumpToday">Back to today</button>');
+    },
+    jumpDate() {
+      const v = val("jumpdate");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return UI.toast("Pick a date first");
+      App.ui.viewDate = v === T() ? null : v;
+      App.closeSheets(); App.render();
+    },
+    addCustom(el) {
+      const date = el.dataset.date || App.ui.viewDate || T();
+      UI.sheet("Add to " + DateU.fmt(date),
+        '<input type="hidden" id="cdate" value="' + date + '">' +
+        '<label class="field"><span>What is it?</span><input id="ctitle" placeholder="e.g. Dinner with Jake" autofocus></label>' +
+        '<label class="field"><span>Starts</span><input type="time" id="cstart" value="19:00"></label>' +
+        '<label class="field"><span>Ends</span><input type="time" id="cend" value="20:30"></label>' +
+        '<label class="field"><span>Note (optional)</span><input id="cnote" placeholder="where, who, what to bring"></label>' +
+        '<button class="btn btn-primary big" data-act="saveCustom">Add it</button>');
+    },
+    saveCustom() {
+      const date = val("cdate"), title = val("ctitle"), s = val("cstart"), e0 = val("cend"), note = val("cnote");
+      if (!title) return UI.toast("Give it a name");
+      if (!/^\d\d:\d\d$/.test(s)) return UI.toast("Pick a start time");
+      const e = (/^\d\d:\d\d$/.test(e0) && DateU.toMin(e0) > DateU.toMin(s)) ? e0 : DateU.fromMin(DateU.toMin(s) + 60);
+      const dl = Store.day(date);
+      dl.custom = dl.custom || [];
+      dl.custom.push({ id: Date.now().toString(36), s, e, title, note });
+      Store.save(); App.closeSheets(); App.render();
+      const dt = DATA.days.find((d) => d.dow === DateU.dow(date));
+      const clash = dt && dt.blocks.find((b) => !dl.skipped[b.s] &&
+        DateU.toMin(b.s) < DateU.toMin(e) && DateU.toMin(b.e) > DateU.toMin(s) &&
+        ["work", "rest", "wake"].indexOf(b.type) < 0);
+      UI.toast(clash ? "Added — heads up, it overlaps " + clash.title : "Added 📌");
+    },
+    delCustom(el) {
+      const date = el.dataset.date || T();
+      UI.confirmDialog("Remove this from the day?", () => {
+        const dl = Store.day(date);
+        dl.custom = (dl.custom || []).filter((c) => c.id !== el.dataset.id);
+        delete dl.completed["cus" + el.dataset.id];
+        Store.save(); App.render();
+      }, "Remove");
+    },
+    skipDay(el) {
+      const date = el.dataset.date || T();
+      Store.skipBlock(date, el.dataset.k, "making room for plans");
+      App.render(); UI.toast("Skipped for " + DateU.fmtShort(date) + " — tap Restore to undo");
+    },
+    restoreBlock(el) {
+      const date = el.dataset.date || T();
+      const dl = Store.day(date); delete dl.skipped[el.dataset.k]; Store.save(); App.render();
     },
     /* Finished a block early? Offer found-time ideas + shifting the rest of
        the day earlier. Fires once per block per day. */

@@ -20,7 +20,10 @@ window.Screens = window.Screens || {};
 
   /* ===================== TODAY ===================== */
   S.today = function () {
-    const date = DateU.today();
+    const realToday = DateU.today();
+    const date = App.ui.viewDate || realToday;
+    const isToday = date === realToday;
+    const isFuture = date > realToday;
     const dt = dayFor(date);
     const prog = Phases.progress(date);
     const dtw = Phases.daysToWedding(date);
@@ -55,63 +58,86 @@ window.Screens = window.Screens || {};
         '</span></div></div>';
     }
 
+    // Merge the day's template blocks with any custom events pinned to it
+    const customs = (dl.custom || []).slice().sort((a, b) => DateU.toMin(a.s) - DateU.toMin(b.s));
+    const items = dt.blocks.map((b, ti) => ({ kind: "tpl", key: b.s, s: b.s, e: b.e, effS: eff[ti].s, effE: eff[ti].e, b }))
+      .concat(customs.map((c) => ({ kind: "cus", key: "cus" + c.id, s: c.s, e: c.e, effS: c.s, effE: c.e, c })));
+    items.sort((a, b) => DateU.toMin(a.effS) - DateU.toMin(b.effS));
+
     const nowM = DateU.nowMinutes();
     let curIdx = -1, nextIdx = -1;
-    dt.blocks.forEach((b, i) => {
-      const s = DateU.toMin(eff[i].s), e = DateU.toMin(eff[i].e);
+    if (isToday) items.forEach((it, i) => {
+      const s = DateU.toMin(it.effS), e = DateU.toMin(it.effE);
       if (nowM >= s && nowM < e && curIdx < 0) curIdx = i;
       if (nowM < s && nextIdx < 0) nextIdx = i;
     });
     const heroIdx = curIdx >= 0 ? curIdx : nextIdx;
     let hero = "";
-    if (heroIdx >= 0) {
-      const b = dt.blocks[heroIdx];
+    if (isToday && heroIdx >= 0) {
+      const it = items[heroIdx];
+      const hTitle = it.kind === "tpl" ? it.b.title : it.c.title;
+      const hDesc = it.kind === "tpl" ? (it.b.desc || "") : (it.c.note || "");
+      const hIcon = it.kind === "tpl" ? blockEmoji(it.b) : "📌";
+      const hCta = it.kind === "tpl" ? heroCTA(it.b, date)
+        : '<button class="btn btn-primary" data-act="toggleBlock" data-k="' + esc(it.key) + '">Mark done</button>';
       hero =
         '<div class="now">' +
           '<span class="kicker"><span class="dot"></span> ' + (curIdx >= 0 ? "Right now" : "Up next") + '</span>' +
-          '<h2>' + blockEmoji(b) + ' ' + esc(b.title) + '</h2>' +
-          '<div class="now-time tabnum">' + DateU.time12(eff[heroIdx].s) + ' – ' + DateU.time12(eff[heroIdx].e) + (durTxt(b) ? ' · ' + durTxt(b) : '') + '</div>' +
-          '<p>' + esc(b.desc || "") + (b.meal === "dinner" && todaysDinner ? ' <b>Tonight: ' + esc(todaysDinner.name) + '.</b>' : "") + '</p>' +
-          '<div class="cta">' + heroCTA(b, date) + '</div>' +
+          '<h2>' + hIcon + ' ' + esc(hTitle) + '</h2>' +
+          '<div class="now-time tabnum">' + DateU.time12(it.effS) + ' – ' + DateU.time12(it.effE) + (durTxt(it) ? ' · ' + durTxt(it) : '') + '</div>' +
+          '<p>' + esc(hDesc) + (it.kind === "tpl" && it.b.meal === "dinner" && todaysDinner ? ' <b>Tonight: ' + esc(todaysDinner.name) + '.</b>' : "") + '</p>' +
+          '<div class="cta">' + hCta + '</div>' +
         '</div>';
     }
 
-    const rows = dt.blocks.map((b, i) => {
-      const done = !!dl.completed[b.s], skipped = b.s in dl.skipped, cur = i === curIdx;
-      const cls = done ? "is-done" : skipped ? "is-skip" : cur ? "is-cur" : "";
-      const isDinner = b.meal === "dinner" && todaysDinner;
-      let ctaInline = blockOpenLink(b);
+    const dAttr = ' data-date="' + date + '"';
+    const rows = items.map((it, i) => {
+      const done = !!dl.completed[it.key], skipped = it.kind === "tpl" && it.key in dl.skipped, cur = i === curIdx;
+      const cls = (done ? "is-done" : skipped ? "is-skip" : cur ? "is-cur" : "") + (it.kind === "cus" ? " is-cus" : "");
+      const b = it.b || null;
+      const isDinner = b && b.meal === "dinner" && todaysDinner;
+      let ctaInline = b ? blockOpenLink(b, date, isToday) : "";
       if (isDinner) ctaInline = '<button class="btn btn-ghost" data-act="recipe" data-i="' + dinnerIdx + '">🍴 View recipe</button>';
-      const sub = isDinner ? esc(todaysDinner.name) + ' · tap for recipe' : esc(shortDesc(b));
+      const title = b ? b.title : it.c.title;
+      const desc = b ? (b.desc || "") : (it.c.note || "");
+      const sub = isDinner ? esc(todaysDinner.name) + ' · tap for recipe' : esc(desc.length > 64 ? desc.slice(0, 62) + "…" : desc);
+      const icon = b ? blockEmoji(b) : "📌";
+      const check = isFuture
+        ? '<span class="check off">·</span>'
+        : (cur ? '<span class="chip now-chip">Now</span>' :
+            done ? '<span class="check on" data-act="toggleBlock" data-k="' + esc(it.key) + '"' + dAttr + '>✓</span>' :
+            '<span class="check" data-act="toggleBlock" data-k="' + esc(it.key) + '"' + dAttr + '></span>');
+      const planBtns = it.kind === "cus"
+        ? '<button class="btn btn-ghost" data-act="delCustom" data-id="' + it.c.id + '"' + dAttr + '>🗑 Remove</button>'
+        : (skipped
+          ? '<button class="btn btn-ghost" data-act="restoreBlock" data-k="' + esc(it.key) + '"' + dAttr + '>↩ Restore</button>'
+          : '<button class="btn btn-ghost" data-act="skipDay" data-k="' + esc(it.key) + '"' + dAttr + '>Skip this day</button>');
+      const markBtn = isFuture ? "" :
+        (done ? '<button class="btn btn-ghost" data-act="toggleBlock" data-k="' + esc(it.key) + '"' + dAttr + '>Undo</button>'
+              : '<button class="btn btn-primary" data-act="toggleBlock" data-k="' + esc(it.key) + '"' + dAttr + '>Mark done</button>');
       return '<details class="row ' + cls + '">' +
         '<summary>' +
-          '<div class="time tabnum">' + DateU.time12c(eff[i].s) + '<span class="te">' + DateU.time12c(eff[i].e) + '</span></div>' +
+          '<div class="time tabnum">' + DateU.time12c(it.effS) + '<span class="te">' + DateU.time12c(it.effE) + '</span></div>' +
           '<div class="rail"><span class="node ' + (done ? "done" : cur ? "cur" : "") + '"></span></div>' +
           '<div class="card">' +
-            '<span class="ico">' + blockEmoji(b) + '</span>' +
-            '<div class="cbody"><div class="t">' + esc(b.title) + '</div>' +
-              ((b.desc || isDinner) ? '<div class="d">' + sub + '</div>' : "") + '</div>' +
-            (cur ? '<span class="chip now-chip">Now</span>' :
-              done ? '<span class="check on" data-act="toggleBlock" data-k="' + esc(b.s) + '">✓</span>' :
-              '<span class="check" data-act="toggleBlock" data-k="' + esc(b.s) + '"></span>') +
+            '<span class="ico">' + icon + '</span>' +
+            '<div class="cbody"><div class="t">' + esc(title) + '</div>' +
+              ((desc || isDinner) ? '<div class="d">' + sub + '</div>' : "") + '</div>' +
+            check +
           '</div>' +
         '</summary>' +
         '<div class="row-x">' +
-          '<p class="rngline tabnum">🕐 ' + DateU.time12(eff[i].s) + ' – ' + DateU.time12(eff[i].e) + (durTxt(b) ? ' &nbsp;·&nbsp; ' + durTxt(b) : '') + '</p>' +
-          (b.desc ? '<p>' + esc(b.desc) + '</p>' : "") +
-          '<div class="row-btns">' +
-            (done ? '<button class="btn btn-ghost" data-act="toggleBlock" data-k="' + esc(b.s) + '">Undo</button>'
-                  : '<button class="btn btn-primary" data-act="toggleBlock" data-k="' + esc(b.s) + '">Mark done</button>') +
-            ctaInline +
-          '</div>' +
+          '<p class="rngline tabnum">🕐 ' + DateU.time12(it.effS) + ' – ' + DateU.time12(it.effE) + (durTxt(it) ? ' &nbsp;·&nbsp; ' + durTxt(it) : '') + '</p>' +
+          (desc ? '<p>' + esc(desc) + '</p>' : "") +
+          '<div class="row-btns">' + markBtn + ctaInline + planBtns + '</div>' +
         '</div>' +
       '</details>';
     }).join("");
 
     const target = DATA.profile.hydrationTargetOz;
     const hyd = Math.min(100, dl.hydration / target * 100);
-    const doneCount = dt.blocks.filter((b) => dl.completed[b.s]).length;
-    const water =
+    const doneCount = items.filter((it) => dl.completed[it.key]).length;
+    const water = !isToday ? "" :
       '<div class="hydro">' +
         '<div class="hydro-top"><span>💧 Water</span><b class="tabnum">' + dl.hydration + ' / ' + target + ' oz</b></div>' +
         '<div class="hydro-bar"><i style="width:' + hyd.toFixed(0) + '%"></i></div>' +
@@ -123,20 +149,26 @@ window.Screens = window.Screens || {};
         '</div>' +
       '</div>';
 
-    const stats =
+    const stats = !isToday ? "" :
       '<div class="stats">' +
-        '<div class="stat"><b class="tabnum">' + doneCount + '/' + dt.blocks.length + '</b><span>blocks done</span></div>' +
+        '<div class="stat"><b class="tabnum">' + doneCount + '/' + items.length + '</b><span>blocks done</span></div>' +
         '<div class="stat water"><b class="tabnum">' + dl.hydration + '<small>/' + target + '</small></b><span>oz water</span></div>' +
         '<div class="stat"><b>' + (dt.workoutType ? '🏋️' : '🌙') + '</b><span>' + (dt.workoutType ? 'workout day' : 'rest day') + '</span></div>' +
       '</div>';
 
-    const shiftBanner = sh
+    const shiftBanner = (sh && isToday)
       ? '<div class="nudge shiftb"><span>⏩</span><p>Running ' + sh.min + ' min ahead — lights out around ' +
         DateU.time12(eff[dt.blocks.length - 1].s) + '. Extra sleep, banked.</p>' +
         '<button class="linkbtn" data-act="unshift">Undo</button></div>'
       : "";
 
-    const nds = nudges(date, dt, dl, dinnerIdx);
+    const away = DateU.daysBetween(realToday, date);
+    const planBanner = isToday ? "" :
+      '<div class="nudge shiftb"><span>📅</span><p>' +
+      (isFuture ? "Planning ahead — " + (away === 1 ? "tomorrow" : away + " days from now") : (away === -1 ? "Yesterday" : (-away) + " days ago")) +
+      ' · ' + esc(dt.name) + '</p><button class="linkbtn" data-act="jumpToday">Today</button></div>';
+
+    const nds = isToday ? nudges(date, dt, dl, dinnerIdx) : [];
     const nudgeHtml = nds.map((n) => {
       const tap = n.act || n.href;
       const tag = n.href ? "a" : "div";
@@ -146,11 +178,19 @@ window.Screens = window.Screens || {};
       '</' + tag + '>';
     }).join("");
 
-    return '<div class="screen">' +
-      topbar("Today", '<a class="datepill" href="#/review">' + esc(DateU.fmt(date)) + '</a>') +
-      '<div class="wrap">' + phaseCard + shiftBanner + nudgeHtml + hero +
-        '<div class="sec-h">Today\'s schedule</div><div class="tl">' + rows + '</div>' +
-        water + stats +
+    const header =
+      '<div class="topbar"><h1>' + (isToday ? "Today" : "Planner") + '</h1>' +
+        '<div class="dnav">' +
+          '<button class="dnav-b" data-act="dayNav" data-d="-1" aria-label="Previous day">‹</button>' +
+          '<button class="datepill" data-act="pickDate">' + esc(DateU.fmt(date)) + '</button>' +
+          '<button class="dnav-b" data-act="dayNav" data-d="1" aria-label="Next day">›</button>' +
+        '</div></div>';
+    const addBtn = '<button class="btn btn-ghost big" data-act="addCustom"' + dAttr + ' style="margin-top:14px">➕ Add something to this day</button>';
+
+    return '<div class="screen">' + header +
+      '<div class="wrap">' + phaseCard + planBanner + shiftBanner + nudgeHtml + hero +
+        '<div class="sec-h">' + (isToday ? "Today's schedule" : "Schedule · " + esc(DateU.fmtLong(date))) + '</div><div class="tl">' + rows + '</div>' +
+        addBtn + water + stats +
       '</div></div>';
   };
 
@@ -221,11 +261,14 @@ window.Screens = window.Screens || {};
       : '<button class="btn ' + (primary ? 'btn-ghost' : 'btn-primary') + '" data-act="toggleBlock" data-k="' + esc(b.s) + '">Mark done</button>';
     return primary + mark;
   }
-  function blockOpenLink(b) {
-    if (b.type === "workout" && dayFor(DateU.today()).workoutType) return '<a class="btn btn-ghost" href="#/workout">Open</a>';
+  function blockOpenLink(b, date, isToday) {
+    // The dinner recipe is useful for planning any day; the rest are "do it
+    // now" links that only make sense on the real today.
+    if (b.meal === "dinner") { const di = Store.get().dinnerPlan[DateU.dow(date)]; if (di != null) return '<button class="btn btn-ghost" data-act="recipe" data-i="' + di + '">Recipe</button>'; return ""; }
+    if (!isToday) return "";
+    if (b.type === "workout" && dayFor(date).workoutType) return '<a class="btn btn-ghost" href="#/workout">Open</a>';
     if (b.type === "wedding-checkin" || b.type === "wedding-block") return '<a class="btn btn-ghost" href="#/wedding">Open</a>';
     if (b.type === "fintech") return '<a class="btn btn-ghost" href="#/fintech">Open</a>';
-    if (b.meal === "dinner") { const di = Store.get().dinnerPlan[DateU.dow(DateU.today())]; if (di != null) return '<button class="btn btn-ghost" data-act="recipe" data-i="' + di + '">Recipe</button>'; return ""; }
     if (b.prep) return '<a class="btn btn-ghost" href="#/meals/prep">Open</a>';
     if (b.grocery) return '<a class="btn btn-ghost" href="#/meals/grocery">Open</a>';
     if (b.mass) return '<a class="btn btn-ghost" href="#/faith">Open</a>';
