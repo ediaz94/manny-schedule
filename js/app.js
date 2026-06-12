@@ -11,7 +11,7 @@ window.App = (function () {
     "meals": S.meals, "meals/rotation": S.dinnerRotation, "meals/grocery": S.grocery, "meals/prep": S.mealPrep,
     "fintech": S.fintech,
     "wedding": S.wedding, "wedding/vendors": S.vendors, "wedding/memoriam": S.memoriam, "wedding/calendar": S.weddingCal,
-    "faith": S.faith, "review": S.review, "stats": S.stats, "more": S.more, "settings": S.settings
+    "faith": S.faith, "review": S.review, "stats": S.stats, "more": S.more, "settings": S.settings, "settings/foods": S.foodList
   };
   const ui = {}; // transient view state (filters, selected exercise)
 
@@ -392,7 +392,7 @@ window.Act = (function () {
       return { items, unmatched };
     },
     _matchFood(str) {
-      const F = DATA.foods; let best = null, bl = 0;
+      const F = Store.foodDb(); let best = null, bl = 0;
       for (let i = 0; i < F.length; i++) { const ks = F[i].k; for (let j = 0; j < ks.length; j++) { const k = ks[j]; if (str.indexOf(k) >= 0 && k.length > bl) { best = F[i]; bl = k.length; } } }
       return best;
     },
@@ -404,6 +404,34 @@ window.Act = (function () {
       App.closeSheets(); App.render(); UI.toast("Added " + cal + " cal");
     },
     delFood(el) { Store.delFood(T(), el.dataset.id); App.render(); },
+
+    /* Editable food library (Settings → Food list) */
+    editFoodDb(el) { const f = Store.foodDb().find((x) => x.id === +el.dataset.id); if (f) Act._foodForm("Edit food", f); },
+    addFoodDb() { Act._foodForm("Add a food", null); },
+    _foodForm(title, f) {
+      f = f || {};
+      UI.sheet(title,
+        '<input type="hidden" id="fdid" value="' + (f.id != null ? f.id : "") + '">' +
+        '<label class="field"><span>Name</span><input id="fdn" value="' + UI.esc(f.n || "") + '" autofocus></label>' +
+        '<label class="field"><span>Portion / unit</span><input id="fdu" value="' + UI.esc(f.u || "") + '" placeholder="e.g. slice, 1 cup, egg"></label>' +
+        '<label class="field"><span>Calories per ' + (f.u ? UI.esc(f.u) : "unit") + '</span><input id="fdc" class="big-in tabnum" type="number" inputmode="numeric" value="' + (f.cal != null ? f.cal : "") + '"></label>' +
+        '<label class="field"><span>Protein (g)</span><input id="fdpr" type="number" inputmode="numeric" value="' + (f.p != null ? f.p : "") + '"></label>' +
+        '<label class="field"><span>Match words <small class="muted">(comma-separated — what you might type)</small></span><input id="fdk" value="' + UI.esc((f.k || []).join(", ")) + '" placeholder="auto-filled from the name"></label>' +
+        '<button class="btn btn-primary big" data-act="saveFoodDb">Save</button>' +
+        (f.id != null ? '<button class="btn btn-ghost big danger" data-act="delFoodDb" data-id="' + f.id + '">🗑 Delete this food</button>' : ""));
+    },
+    saveFoodDb() {
+      const id = val("fdid"), n = val("fdn"), cal = num("fdc");
+      if (!n) return UI.toast("Name it");
+      if (cal == null) return UI.toast("Enter calories");
+      let kw = val("fdk").toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
+      if (kw.indexOf(n.toLowerCase()) < 0) kw.push(n.toLowerCase());
+      const rec = { n, u: val("fdu") || "serving", cal, p: num("fdpr") || 0, k: kw };
+      if (id === "") Store.addFoodDb(rec); else Store.setFoodDb(Object.assign({ id: +id }, rec));
+      App.closeSheets(); App.render(); UI.toast("Saved");
+    },
+    delFoodDb(el) { const id = +el.dataset.id; UI.confirmDialog("Remove this food from your list?", () => { Store.delFoodDb(id); App.closeSheets(); App.render(); UI.toast("Deleted"); }, "Delete"); },
+    resetFoodDb() { UI.confirmDialog("Reset the food list back to the built-in foods? Foods you added or edited will be lost.", () => { Store.resetFoodDb(); App.render(); UI.toast("Food list reset"); }, "Reset"); },
 
     /* Grocery / prep */
     grocery(el) { Store.toggleGrocery(+el.dataset.i, el.dataset.field); App.render(); },
@@ -758,6 +786,16 @@ document.addEventListener("change", function (e) {
 let stashTimer;
 document.addEventListener("input", function (e) {
   const el = e.target;
+  if (el.id === "foodq") {
+    const q = el.value.toLowerCase().trim();
+    let n = 0;
+    document.querySelectorAll(".frow").forEach(function (r) {
+      const show = !q || (r.dataset.s || "").indexOf(q) >= 0;
+      r.style.display = show ? "" : "none"; if (show) n++;
+    });
+    const c = document.getElementById("foodcount"); if (c) c.textContent = n;
+    return;
+  }
   if (!el.classList || !el.classList.contains("setin")) return;
   const m = el.id.match(/^[wr]_(\d+)_(\d+)$/);
   if (!m) return;

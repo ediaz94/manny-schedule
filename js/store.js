@@ -92,7 +92,8 @@ window.Store = (function () {
       dateNights: [],
       reviews: [],
       seenPhase: {},
-      people: []
+      people: [],
+      foodDb: DATA.foods.map((f, i) => Object.assign({ id: i }, f))
     };
   }
   function seedDinnerPlan() {
@@ -224,6 +225,13 @@ window.Store = (function () {
     return { cal, protein };
   }
 
+  /* Editable food library (powers the plain-English calorie lookup) */
+  function foodDb() { if (!state.foodDb) state.foodDb = DATA.foods.map((f, i) => Object.assign({ id: i }, f)); return state.foodDb; }
+  function addFoodDb(f) { const db = foodDb(); const id = Math.max(-1, ...db.map((x) => x.id)) + 1; db.push(Object.assign({ id }, f)); save(); return id; }
+  function setFoodDb(f) { const x = foodDb().find((y) => y.id === f.id); if (x) { Object.assign(x, f); save(); } }
+  function delFoodDb(id) { state.foodDb = foodDb().filter((x) => x.id !== id); save(); }
+  function resetFoodDb() { state.foodDb = DATA.foods.map((f, i) => Object.assign({ id: i }, f)); save(); }
+
   function toggleGrocery(i, field) { const it = state.grocery.items[i]; it[field] = !it[field]; save(); }
   function resetGrocery() { state.grocery = seedGrocery(); save(); }
 
@@ -272,7 +280,8 @@ window.Store = (function () {
     load, save, get, day, toggleBlock, skipBlock, addWater, setPrayer,
     addWeight, latestWeight, uid, saveWorkout, lastWorkout, lastSet,
     getDraft, setDraftSet, clearDraft,
-    mealLog, setMeal, setDinner, dayFoods, addFood, delFood, dayNutrition, toggleGrocery, resetGrocery,
+    mealLog, setMeal, setDinner, dayFoods, addFood, delFood, dayNutrition,
+    foodDb, addFoodDb, setFoodDb, delFoodDb, resetFoodDb, toggleGrocery, resetGrocery,
     addFintech, toggleMilestone, fintechHoursWeek,
     setTaskStatus, addTask, setTask, deleteTask, addPerson, saveVendor, saveMemoriam,
     setMass, massFor, bumpBible, addReview, reviewFor, addDateNight, dateNightsInMonth,

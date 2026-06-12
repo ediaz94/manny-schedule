@@ -371,6 +371,24 @@ window.Screens = window.Screens || {};
       '</div></div>';
   };
 
+  /* ===================== FOOD LIST (editable library) ===================== */
+  S.foodList = function () {
+    const db = Store.foodDb().slice().sort((a, b) => a.n.toLowerCase() < b.n.toLowerCase() ? -1 : 1);
+    const rows = db.map((f) =>
+      '<div class="frow" data-act="editFoodDb" data-id="' + f.id + '" role="button" data-s="' + esc((f.n + " " + (f.k || []).join(" ")).toLowerCase()) + '">' +
+        '<div class="frow-b"><div class="fn">' + esc(f.n) + '</div><div class="fu">' + esc(f.u) + '</div></div>' +
+        '<div class="fcal tabnum">' + f.cal + ' cal' + (f.p ? ' · ' + f.p + 'g' : '') + '</div>' +
+        '<span class="chev">›</span></div>').join("");
+    return '<div class="screen">' + subbar("Food List", "#/settings") + '<div class="wrap">' +
+      '<p class="muted intro">These foods power the plain-English calorie lookup. Tap one to fix its numbers, or add your own.</p>' +
+      '<input class="foodsearch" id="foodq" placeholder="🔎 Search foods…" autocomplete="off">' +
+      '<button class="btn btn-primary" data-act="addFoodDb" style="margin-bottom:6px">➕ Add a food</button>' +
+      '<div class="sec-h"><span id="foodcount">' + db.length + '</span> foods</div>' +
+      rows +
+      '<button class="btn btn-ghost" data-act="resetFoodDb" style="margin-top:18px">↺ Reset to the built-in list</button>' +
+      '</div></div>';
+  };
+
   /* ===================== SETTINGS ===================== */
   S.settings = function () {
     const p = Store.get().profile;
@@ -385,6 +403,10 @@ window.Screens = window.Screens || {};
         '<div class="kv"><span>Daily protein goal</span><b>' + (p.proteinTarget || 180) + ' g</b></div>' +
         '<div class="kv"><span>Wedding</span><b>' + DateU.fmtLong(p.weddingDate) + '</b></div>' +
         '<button class="link" data-act="editProfile">Edit profile ›</button>' +
+      '</div>' +
+      '<div class="card2"><div class="card2-h">Calorie lookup</div>' +
+        '<p class="muted">The foods behind the plain-English calorie lookup — browse them all, fix any numbers, or add your own.</p>' +
+        '<a class="btn btn-ghost" href="#/settings/foods">🍎 Food list (' + Store.foodDb().length + ')</a>' +
       '</div>' +
       '<div class="card2"><div class="card2-h">Security</div>' +
         '<p class="muted">A 4-digit PIN blocks casual access on a shared phone. It is not bank-grade — just a speed bump.</p>' +
