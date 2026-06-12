@@ -339,12 +339,62 @@ window.Act = (function () {
     recipe(el) { UI.sheet(DATA.dinners[+el.dataset.i].name, Screens.recipeHTML(+el.dataset.i)); },
     addFood() {
       UI.sheet("Add food",
-        '<label class="field"><span>What did you eat?</span><input id="fdname" placeholder="e.g. Protein bar, handful of chips" autofocus></label>' +
-        '<label class="field"><span>Calories</span><input id="fdcal" class="big-in tabnum" type="number" inputmode="numeric"></label>' +
-        '<div class="presets">' + [100, 150, 200, 300, 500].map((c) => '<button type="button" class="chipbtn fdp" data-c="' + c + '">' + c + '</button>').join("") + '</div>' +
-        '<label class="field"><span>Protein (g, optional)</span><input id="fdprot" type="number" inputmode="numeric"></label>' +
-        '<button class="btn btn-primary big" data-act="saveFood">Add it</button>',
-        (body) => body.querySelectorAll(".fdp").forEach((b) => b.addEventListener("click", () => { body.querySelector("#fdcal").value = b.dataset.c; })));
+        '<label class="field"><span>Type what you ate — plain English</span>' +
+          '<textarea id="fdtext" rows="2" placeholder="2 hard-boiled eggs and 2 sourdough toast"></textarea></label>' +
+        '<button type="button" class="btn btn-ghost big" data-act="lookupFood">🔎 Look up the calories</button>' +
+        '<div id="fdresults" class="fdresults"></div>' +
+        '<div class="fdman"><button type="button" class="link" data-act="foodManual">or enter the calories myself ›</button>' +
+          '<div id="fdmanwrap" style="display:none">' +
+            '<label class="field"><span>Food</span><input id="fdname" placeholder="e.g. Protein bar"></label>' +
+            '<label class="field"><span>Calories</span><input id="fdcal" class="big-in tabnum" type="number" inputmode="numeric"></label>' +
+            '<div class="presets">' + [100, 150, 200, 300, 500].map((c) => '<button type="button" class="chipbtn" data-act="foodPreset" data-c="' + c + '">' + c + '</button>').join("") + '</div>' +
+            '<label class="field"><span>Protein (g, optional)</span><input id="fdprot" type="number" inputmode="numeric"></label>' +
+            '<button class="btn btn-primary big" data-act="saveFood">Add it</button>' +
+          '</div></div>');
+    },
+    foodManual() { const w = document.getElementById("fdmanwrap"); if (!w) return; w.style.display = w.style.display === "none" ? "" : "none"; if (w.style.display === "") { const n = document.getElementById("fdname"); if (n) n.focus(); } },
+    foodPreset(el) { const c = document.getElementById("fdcal"); if (c) c.value = el.dataset.c; },
+    lookupFood() {
+      const r = Act.parseFoods(val("fdtext"));
+      App.ui._pf = r.items;
+      const res = document.getElementById("fdresults"); if (!res) return;
+      if (!r.items.length && !r.unmatched.length) { res.innerHTML = '<p class="muted" style="margin:8px 2px">Type what you ate above, then look it up.</p>'; return; }
+      const qf = (q) => q === 0.5 ? "½" : String(q);
+      let cal = 0, p = 0;
+      const rows = r.items.map((it) => { const c = it.food.cal * it.qty, pp = (it.food.p || 0) * it.qty; cal += c; p += pp; return '<div class="pfrow"><span>' + qf(it.qty) + '× ' + UI.esc(it.food.n) + ' <span class="muted">(' + UI.esc(it.food.u) + ')</span></span><b class="tabnum">' + Math.round(c) + ' cal</b></div>'; }).join("");
+      const un = r.unmatched.length ? '<div class="pfun">Couldn’t find: <b>' + r.unmatched.map(UI.esc).join(", ") + '</b> — add those with “enter the calories myself” below.</div>' : "";
+      res.innerHTML = rows + un +
+        (r.items.length ? '<div class="pftot"><span>Total</span><b class="tabnum">' + Math.round(cal) + ' cal · ' + Math.round(p) + ' g protein</b></div>' +
+          '<button class="btn btn-primary big" data-act="addParsed">Add ' + r.items.length + ' item' + (r.items.length === 1 ? "" : "s") + ' to today</button>' : "");
+    },
+    addParsed() {
+      const items = App.ui._pf || [];
+      const qf = (q) => q === 0.5 ? "½" : String(q);
+      let n = 0;
+      items.forEach((it) => { Store.addFood(T(), { name: qf(it.qty) + "× " + it.food.n, cal: Math.round(it.food.cal * it.qty), protein: Math.round((it.food.p || 0) * it.qty) }); n++; });
+      App.ui._pf = null; App.closeSheets(); App.render(); UI.toast(n ? "Added " + n + " item" + (n === 1 ? "" : "s") + " 🍽️" : "Nothing matched");
+    },
+    parseFoods(text) {
+      const W = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, a: 1, an: 1, half: 0.5, couple: 2, dozen: 12 };
+      const items = [], unmatched = [];
+      (text || "").toLowerCase().replace(/&/g, " and ").replace(/\b(with|plus|on|over|topped)\b/g, ",")
+        .split(/,|\band\b|\n|\+/).map((s) => s.trim()).filter(Boolean)
+        .forEach((frag) => {
+          let qty = 1, rest = frag;
+          const m = frag.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+          if (m) { qty = parseFloat(m[1]); rest = m[2]; }
+          else { const wm = frag.match(/^([a-z]+)\s+(.*)$/); if (wm && W[wm[1]] != null) { qty = W[wm[1]]; rest = wm[2]; } }
+          rest = rest.replace(/\b(pieces?|slices?|cups?|servings?|scoops?|cloves?|bowls?|glass(?:es)?|cans?|bottles?|orders?|handful|of|some|fresh|big|small|the|a|an)\b/g, " ").replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+          if (!rest) { if (frag) unmatched.push(frag.trim()); return; }
+          const f = Act._matchFood(rest);
+          if (f) items.push({ food: f, qty: qty || 1 }); else unmatched.push(frag.trim());
+        });
+      return { items, unmatched };
+    },
+    _matchFood(str) {
+      const F = DATA.foods; let best = null, bl = 0;
+      for (let i = 0; i < F.length; i++) { const ks = F[i].k; for (let j = 0; j < ks.length; j++) { const k = ks[j]; if (str.indexOf(k) >= 0 && k.length > bl) { best = F[i]; bl = k.length; } } }
+      return best;
     },
     saveFood() {
       const name = val("fdname"), cal = num("fdcal");

@@ -498,9 +498,108 @@ window.DATA = (function () {
     { name: "Placeholder 14", rel: "Family", photo: false, framed: false, notes: "Edit with actual name." }
   ];
 
+  /* ---- Offline food database (for the plain-English calorie lookup) ---
+     n=name, u=unit shown, cal+p(rotein) per ONE unit, k=keywords (lowercase;
+     matched by substring so plurals like "eggs" hit "egg"). Edit/extend freely. */
+  const foods = [
+    // eggs & breakfast
+    { n: "Hard-boiled egg", u: "egg", cal: 78, p: 6, k: ["hard boiled egg", "hardboiled egg", "boiled egg", "egg"] },
+    { n: "Fried egg", u: "egg", cal: 90, p: 6, k: ["fried egg"] },
+    { n: "Scrambled egg", u: "egg", cal: 90, p: 6, k: ["scrambled egg"] },
+    { n: "Egg white", u: "white", cal: 17, p: 4, k: ["egg white"] },
+    { n: "Oatmeal", u: "cup", cal: 150, p: 5, k: ["oatmeal", "oats", "porridge"] },
+    { n: "Cereal", u: "cup", cal: 150, p: 3, k: ["cereal"] },
+    { n: "Granola", u: "½ cup", cal: 200, p: 5, k: ["granola"] },
+    { n: "Pancake", u: "pancake", cal: 90, p: 2, k: ["pancake"] },
+    // breads
+    { n: "Sourdough toast", u: "slice", cal: 90, p: 3, k: ["sourdough toast", "sourdough bread", "sourdough slice", "sourdough"] },
+    { n: "Whole-grain toast", u: "slice", cal: 80, p: 4, k: ["whole grain bread", "whole wheat bread", "whole wheat toast", "wheat bread", "whole grain toast"] },
+    { n: "White toast", u: "slice", cal: 75, p: 2, k: ["white bread", "white toast"] },
+    { n: "Toast", u: "slice", cal: 80, p: 3, k: ["toast", "slice of bread", "bread"] },
+    { n: "Bagel", u: "bagel", cal: 250, p: 10, k: ["bagel"] },
+    { n: "English muffin", u: "muffin", cal: 130, p: 5, k: ["english muffin"] },
+    { n: "Corn tortilla", u: "tortilla", cal: 60, p: 1, k: ["corn tortilla"] },
+    { n: "Flour tortilla", u: "tortilla", cal: 140, p: 4, k: ["flour tortilla", "tortilla", "wrap"] },
+    { n: "Rice cake", u: "cake", cal: 35, p: 1, k: ["rice cake"] },
+    // proteins
+    { n: "Chicken breast", u: "4 oz", cal: 185, p: 35, k: ["chicken breast", "grilled chicken", "chicken"] },
+    { n: "Chicken thigh", u: "thigh", cal: 180, p: 19, k: ["chicken thigh", "thigh"] },
+    { n: "Ground turkey", u: "4 oz", cal: 170, p: 22, k: ["ground turkey"] },
+    { n: "Turkey meatball", u: "meatball", cal: 60, p: 6, k: ["turkey meatball", "meatball"] },
+    { n: "Deli turkey", u: "slice", cal: 30, p: 5, k: ["deli turkey", "turkey slice", "sliced turkey", "turkey breast"] },
+    { n: "Salmon", u: "4 oz", cal: 230, p: 25, k: ["salmon"] },
+    { n: "Shrimp", u: "4 oz", cal: 120, p: 24, k: ["shrimp"] },
+    { n: "Steak (sirloin)", u: "4 oz", cal: 210, p: 31, k: ["sirloin", "steak"] },
+    { n: "Flank / carne asada", u: "4 oz", cal: 200, p: 30, k: ["flank steak", "flank", "carne asada"] },
+    { n: "Pork tenderloin", u: "4 oz", cal: 160, p: 26, k: ["pork tenderloin", "pork"] },
+    { n: "Andouille sausage", u: "2 oz", cal: 180, p: 9, k: ["andouille", "sausage"] },
+    { n: "Bacon", u: "slice", cal: 45, p: 3, k: ["bacon"] },
+    { n: "Tuna", u: "can", cal: 120, p: 26, k: ["tuna"] },
+    // dairy
+    { n: "Greek yogurt", u: "cup", cal: 130, p: 22, k: ["greek yogurt", "yogurt"] },
+    { n: "Cottage cheese", u: "¾ cup", cal: 110, p: 14, k: ["cottage cheese"] },
+    { n: "Milk", u: "cup", cal: 120, p: 8, k: ["milk"] },
+    { n: "Cheese", u: "slice", cal: 100, p: 6, k: ["cheese slice", "cheddar", "cheese"] },
+    { n: "Butter", u: "tbsp", cal: 100, p: 0, k: ["butter"] },
+    { n: "Cream cheese", u: "tbsp", cal: 50, p: 1, k: ["cream cheese"] },
+    { n: "Whey / protein shake", u: "scoop", cal: 120, p: 25, k: ["protein shake", "whey", "protein powder", "shake"] },
+    // grains & carbs
+    { n: "White rice", u: "cup", cal: 205, p: 4, k: ["white rice", "rice"] },
+    { n: "Brown rice", u: "cup", cal: 215, p: 5, k: ["brown rice"] },
+    { n: "Quinoa", u: "cup", cal: 220, p: 8, k: ["quinoa"] },
+    { n: "Farro", u: "cup", cal: 200, p: 7, k: ["farro"] },
+    { n: "Pasta", u: "cup", cal: 200, p: 7, k: ["pasta", "spaghetti", "noodles"] },
+    { n: "Sweet potato", u: "medium", cal: 110, p: 2, k: ["sweet potato"] },
+    { n: "Potato", u: "medium", cal: 160, p: 4, k: ["baked potato", "potato"] },
+    { n: "French fries", u: "med order", cal: 365, p: 4, k: ["french fries", "fries"] },
+    // fruit
+    { n: "Banana", u: "banana", cal: 105, p: 1, k: ["banana"] },
+    { n: "Apple", u: "apple", cal: 95, p: 0, k: ["apple"] },
+    { n: "Orange", u: "orange", cal: 60, p: 1, k: ["orange"] },
+    { n: "Berries", u: "cup", cal: 70, p: 1, k: ["berries", "blueberries", "strawberries", "raspberries"] },
+    { n: "Grapes", u: "cup", cal: 100, p: 1, k: ["grapes"] },
+    { n: "Avocado", u: "½", cal: 120, p: 1, k: ["avocado"] },
+    // veg
+    { n: "Broccoli", u: "cup", cal: 30, p: 2, k: ["broccoli"] },
+    { n: "Asparagus", u: "cup", cal: 27, p: 3, k: ["asparagus"] },
+    { n: "Brussels sprouts", u: "cup", cal: 40, p: 3, k: ["brussels sprouts", "brussels", "brussel sprouts"] },
+    { n: "Spinach", u: "cup", cal: 7, p: 1, k: ["spinach"] },
+    { n: "Bell pepper", u: "pepper", cal: 30, p: 1, k: ["bell pepper", "pepper"] },
+    { n: "Cauliflower rice", u: "cup", cal: 25, p: 2, k: ["cauliflower rice", "cauliflower"] },
+    { n: "Side salad", u: "bowl", cal: 30, p: 1, k: ["salad", "greens", "arugula"] },
+    { n: "Eggplant", u: "cup", cal: 35, p: 1, k: ["eggplant"] },
+    // snacks & fats
+    { n: "Almonds", u: "oz", cal: 165, p: 6, k: ["almonds", "almond"] },
+    { n: "Peanut butter", u: "tbsp", cal: 95, p: 4, k: ["peanut butter", "pb"] },
+    { n: "Protein bar", u: "bar", cal: 200, p: 20, k: ["protein bar"] },
+    { n: "Chips", u: "oz", cal: 150, p: 2, k: ["potato chips", "chips"] },
+    { n: "Crackers", u: "serving", cal: 80, p: 1, k: ["crackers", "cracker"] },
+    { n: "Cookie", u: "cookie", cal: 150, p: 1, k: ["cookie"] },
+    { n: "Donut", u: "donut", cal: 250, p: 3, k: ["donut", "doughnut"] },
+    { n: "Olive oil", u: "tbsp", cal: 120, p: 0, k: ["olive oil"] },
+    { n: "Honey", u: "tbsp", cal: 60, p: 0, k: ["honey"] },
+    { n: "Mayo", u: "tbsp", cal: 90, p: 0, k: ["mayo", "mayonnaise"] },
+    { n: "Ranch", u: "2 tbsp", cal: 130, p: 1, k: ["ranch"] },
+    { n: "Ketchup", u: "tbsp", cal: 20, p: 0, k: ["ketchup"] },
+    // meals out
+    { n: "Pizza", u: "slice", cal: 285, p: 12, k: ["pizza"] },
+    { n: "Cheeseburger", u: "burger", cal: 300, p: 15, k: ["cheeseburger", "hamburger", "burger"] },
+    { n: "Taco", u: "taco", cal: 170, p: 8, k: ["taco"] },
+    { n: "Sandwich", u: "sandwich", cal: 350, p: 15, k: ["sandwich", "sub"] },
+    { n: "Burrito", u: "burrito", cal: 500, p: 20, k: ["burrito"] },
+    // drinks
+    { n: "Black coffee", u: "cup", cal: 5, p: 0, k: ["black coffee", "coffee"] },
+    { n: "Latte", u: "drink", cal: 150, p: 8, k: ["latte", "cappuccino"] },
+    { n: "Beer", u: "beer", cal: 150, p: 1, k: ["beer"] },
+    { n: "Wine", u: "glass", cal: 125, p: 0, k: ["wine"] },
+    { n: "Soda", u: "can", cal: 140, p: 0, k: ["soda", "coke", "pop"] },
+    { n: "Orange juice", u: "cup", cal: 110, p: 2, k: ["orange juice", "juice"] },
+    { n: "Sports drink", u: "bottle", cal: 80, p: 0, k: ["gatorade", "sports drink", "powerade"] }
+  ];
+
   return {
     profile, phases, blockIcon, mealEmojiByTitle, days, workouts, meals, dinners,
     mealPrepTasks, grocery, fintechModules, fintechMilestones, weddingTasks, monthLabels,
-    vendors, memoriam
+    vendors, memoriam, foods
   };
 })();

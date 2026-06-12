@@ -135,6 +135,11 @@ a.nudge{text-decoration:none}
 .xfood .xn{flex:1; font-size:14px}
 .xfood .xc{font-size:12.5px; color:var(--ink-2); font-weight:700}
 .cal.counted{color:var(--success); font-weight:800}
+.fdresults:not(:empty){margin:10px 0 4px}
+.pfrow{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin:6px 0; font-size:14px}
+.pftot{display:flex; justify-content:space-between; padding:11px 12px; background:#EFF5EF; border:1px solid #CFE3CF; border-radius:10px; margin:8px 0; font-weight:800; font-size:15px; color:var(--sage)}
+.pfun{font-size:12.5px; color:var(--warning); background:#FBF7EE; border:1px solid #ECE0C6; border-radius:10px; padding:9px 11px; margin:6px 0; line-height:1.45}
+.fdman{margin-top:14px; border-top:1px dashed var(--border); padding-top:10px}
 
 /* ---- Finished-early sheet ------------------------------------------- */
 .found{font-size:14.5px; color:var(--ink-2); margin:4px 0 12px; line-height:1.55}
