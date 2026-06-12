@@ -336,7 +336,7 @@ window.Screens = window.Screens || {};
       '<div class="menu">' +
         '<a class="mrow" href="#/meals"><span>🍽️ Meals &amp; recipes</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/meals/grocery"><span>🛒 Grocery list</span><span class="chev">›</span></a>' +
-        '<a class="mrow" href="#/meals/prep"><span>🧑‍🍳 Meal prep</span><span class="chev">›</span></a>' +
+        '<a class="mrow" href="#/meals/prep"><span>🍱 Meal prep</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/weight"><span>⚖️ Weight</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/fintech"><span>📈 Fintech study <small class="muted">(paused)</small></span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/faith"><span>🙏 Faith &amp; prayer</span><span class="chev">›</span></a>' +

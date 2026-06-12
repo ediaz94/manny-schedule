@@ -278,7 +278,7 @@ window.Screens = window.Screens || {};
     if (b.type === "workout" && dayFor(date).workoutType) primary = '<a class="btn btn-primary" href="#/workout">🏋️ Open workout</a>';
     else if (b.type === "wedding-checkin" || b.type === "wedding-block") primary = '<a class="btn btn-primary" href="#/wedding">💍 Wedding</a>';
     else if (b.type === "fintech") primary = '<a class="btn btn-primary" href="#/fintech">📈 Study</a>';
-    else if (b.type === "meal-prep" && b.prep) primary = '<a class="btn btn-primary" href="#/meals/prep">🧑‍🍳 Prep list</a>';
+    else if (b.type === "meal-prep" && b.prep) primary = '<a class="btn btn-primary" href="#/meals/prep">🍱 Prep list</a>';
     else if (b.type === "meal-prep" && b.grocery) primary = '<a class="btn btn-primary" href="#/meals/grocery">🛒 Grocery</a>';
     else if (b.type === "mass") primary = '<a class="btn btn-primary" href="#/faith">⛪ Faith</a>';
     else if (b.meal === "dinner") { const di = Store.get().dinnerPlan[DateU.dow(date)]; if (di != null) primary = '<button class="btn btn-primary" data-act="recipe" data-i="' + di + '">🍴 Tonight\'s recipe</button>'; }
@@ -478,7 +478,7 @@ window.Screens = window.Screens || {};
       '<div class="tiles">' +
         '<a class="tile" href="#/meals/rotation">🍽️<span>Dinners &amp; recipes</span></a>' +
         '<a class="tile" href="#/meals/grocery">🛒<span>Grocery list</span></a>' +
-        '<a class="tile" href="#/meals/prep">🧑‍🍳<span>Meal prep</span></a>' +
+        '<a class="tile" href="#/meals/prep">🍱<span>Meal prep</span></a>' +
       '</div>' +
       '<div class="sec-h">Today\'s meals</div>' + meals +
       '</div></div>';

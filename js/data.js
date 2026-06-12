@@ -51,9 +51,9 @@ window.DATA = (function () {
   const blockIcon = {
     wake: "💧", meal: "🍽️", prayer: "🙏", commute: "🚗", work: "💼",
     fintech: "📈", workout: "🏋️", "wedding-checkin": "💍", "wedding-block": "💍",
-    flex: "⚙️", shower: "🚿", "meal-prep": "🧑‍🍳", mass: "⛪", rest: "🌙", review: "📊"
+    flex: "⚙️", shower: "🚿", "meal-prep": "🍱", mass: "⛪", rest: "🌙", review: "📊"
   };
-  const mealEmojiByTitle = { "Light Breakfast": "🍳" };
+  const mealEmojiByTitle = { "Light Breakfast": "🍳", "Grocery Run": "🛒" };
 
   /* ---- Day templates (the schedule) ---------------------------------- */
   const days = [
