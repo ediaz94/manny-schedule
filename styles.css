@@ -95,10 +95,13 @@ a.nudge{text-decoration:none}
 .cal-w{font-size:10px; font-weight:800; color:var(--ink-2); text-align:center; padding:2px 0}
 .cal-c{aspect-ratio:1; border:none; border-radius:8px; font-size:12px; font-weight:700; color:var(--ink); background:#F2EFE8; cursor:pointer; font-family:inherit; font-variant-numeric:tabular-nums; display:flex; align-items:center; justify-content:center; padding:0}
 .cal-c.empty{background:transparent; cursor:default}
-.cal-c.h1{background:#DEEAE1}
-.cal-c.h2{background:#F3E5BC}
-.cal-c.h3{background:#EFCD92; color:#6b4f1d}
-.cal-c.h4{background:#E8A9A9; color:#6d2727}
+.cal-c.h1,.heat-chip.h1{background:#CFE3D4; color:#2E4A3F}
+.cal-c.h2,.heat-chip.h2{background:#F6DD8F; color:#6b5212}
+.cal-c.h3,.heat-chip.h3{background:#F2AE5E; color:#5e3a10}
+.cal-c.h4,.heat-chip.h4{background:#E2746C; color:#fff}
+.heat-chip{display:inline-block; padding:5px 12px; border-radius:99px; font-size:12.5px; font-weight:800}
+.heat-chip.h0{background:#F2EFE8; color:var(--ink-2)}
+.gdin{font-size:12.5px; font-weight:800; color:var(--purple); margin:12px 2px 5px}
 .cal-c.past{opacity:.35}
 .cal-c.today{outline:2px solid var(--purple); outline-offset:1px}
 .cal-c.wedding{background:var(--purple); color:#fff; font-size:14px}

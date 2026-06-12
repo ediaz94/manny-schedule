@@ -250,10 +250,15 @@ window.Act = (function () {
       const date = el.dataset.date || T();
       const dl = Store.day(date); delete dl.skipped[el.dataset.k]; Store.save(); App.render();
     },
-    /* Busy map: tap a day → open it in the planner */
+    /* Busy map: tap a day → wedding picture for that day */
     calDay(el) {
       const d = el.dataset.date;
+      UI.sheet(DateU.fmtLong(d), Screens.calDaySheet(d));
+    },
+    openPlanner(el) {
+      const d = el.dataset.date;
       App.ui.viewDate = d === T() ? null : d;
+      App.closeSheets();
       if (location.hash === "#/" || location.hash === "") App.render(); else location.hash = "#/";
     },
     /* Overdue banner: jump to the slipped month's open tasks */

@@ -509,21 +509,36 @@ window.Screens = window.Screens || {};
 
   S.grocery = function () {
     const g = Store.get().grocery;
+    const row = (it, i) =>
+      '<div class="gitem ' + (it.checked ? "got" : "") + (it.oos ? " oos" : "") + '">' +
+        '<button class="check ' + (it.checked ? "on" : "") + '" data-act="grocery" data-i="' + i + '" data-field="checked">' + (it.checked ? "✓" : "") + '</button>' +
+        '<span class="gname">' + esc(it.name) + '</span>' +
+        '<button class="oosbtn" data-act="grocery" data-i="' + i + '" data-field="oos">' + (it.oos ? "out" : "✕") + '</button>' +
+      '</div>';
     const byStore = (store) => {
       const items = g.items.map((it, i) => ({ it, i })).filter((x) => x.it.store === store);
       const done = items.filter((x) => x.it.checked).length;
-      const rows = items.map(({ it, i }) =>
-        '<div class="gitem ' + (it.checked ? "got" : "") + (it.oos ? " oos" : "") + '">' +
-          '<button class="check ' + (it.checked ? "on" : "") + '" data-act="grocery" data-i="' + i + '" data-field="checked">' + (it.checked ? "✓" : "") + '</button>' +
-          '<span class="gname">' + esc(it.name) + '</span>' +
-          '<button class="oosbtn" data-act="grocery" data-i="' + i + '" data-field="oos">' + (it.oos ? "out" : "✕") + '</button>' +
-        '</div>').join("");
-      return '<div class="sec-h">' + store + ' <span class="muted">' + done + '/' + items.length + '</span></div>' + rows;
+      return '<div class="sec-h">' + store + ' <span class="muted">' + done + '/' + items.length + '</span></div>' +
+        items.map(({ it, i }) => row(it, i)).join("");
     };
+    // Dinner ingredients for the week ahead, grouped by recipe
+    const dItems = g.items.map((it, i) => ({ it, i })).filter((x) => x.it.store === "dinner");
+    let dinnerHtml = "";
+    if (dItems.length) {
+      const groups = {};
+      dItems.forEach((x) => { (groups[x.it.cat] = groups[x.it.cat] || []).push(x); });
+      const done = dItems.filter((x) => x.it.checked).length;
+      dinnerHtml = '<div class="sec-h">This week\'s dinners <span class="muted">' + done + '/' + dItems.length + '</span></div>' +
+        '<p class="muted" style="font-size:12.5px;margin:0 4px 8px">Everything the rotation\'s recipes call for, Saturday through Friday.</p>' +
+        Object.keys(groups).map((cat) =>
+          '<div class="gdin">🍽️ ' + esc(cat) + '</div>' +
+          groups[cat].map(({ it, i }) => row(it, i)).join("")
+        ).join("");
+    }
     return '<div class="screen">' + subbar("Grocery List", "#/meals") +
       '<div class="wrap">' +
-        '<p class="muted intro">Aldi first for staples, then Publix for produce &amp; fish. Tap ✕ to flag out-of-stock.</p>' +
-        byStore("Aldi") + byStore("Publix") +
+        '<p class="muted intro">Aldi first for staples, then Publix for produce &amp; fish — then the week\'s dinner ingredients by recipe. Tap ✕ to flag out-of-stock.</p>' +
+        byStore("Aldi") + byStore("Publix") + dinnerHtml +
         '<button class="btn btn-ghost" data-act="groceryReset" style="margin-top:18px">↻ Reset list for a new week</button>' +
       '</div></div>';
   };

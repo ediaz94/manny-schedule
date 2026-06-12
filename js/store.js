@@ -103,6 +103,20 @@ window.Store = (function () {
     const items = [];
     DATA.grocery.aldi.forEach((g) => items.push({ store: "Aldi", name: g.name, cat: g.cat, checked: false, oos: false }));
     DATA.grocery.publix.forEach((g) => items.push({ store: "Publix", name: g.name, cat: g.cat, checked: false, oos: false }));
+    // The week's dinner ingredients, grouped by recipe (a Saturday shop
+    // covers Sat → Fri). Pantry basics you always have are left off.
+    const pantry = /salt|pepper|olive oil/i;
+    const DAY3 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const plan = (state && state.dinnerPlan) ? state.dinnerPlan
+      : (function () { const p = {}; DATA.dinners.forEach((dn, i) => { p[dn.dow] = i; }); return p; })();
+    [6, 0, 1, 2, 3, 4, 5].forEach((dow) => {
+      const di = plan[dow]; if (di == null) return;
+      const dn = DATA.dinners[di]; if (!dn) return;
+      dn.ingredients.forEach((ing) => {
+        if (pantry.test(ing)) return;
+        items.push({ store: "dinner", name: ing, cat: DAY3[dow] + " · " + dn.name, checked: false, oos: false });
+      });
+    });
     return { items, week: DateU.monday(DateU.today()) };
   }
 
@@ -111,6 +125,8 @@ window.Store = (function () {
     if (!state) { state = defaults(); save(); }
     const d = defaults();
     for (const k in d) if (!(k in state)) state[k] = d[k];
+    // one-time upgrade: older grocery lists predate the dinner-ingredient section
+    if (state.grocery && !(state.grocery.items || []).some((i) => i.store === "dinner")) state.grocery = seedGrocery();
     commitStaleDrafts();
     return state;
   }

@@ -35,22 +35,75 @@ window.Screens = window.Screens || {};
   }
 
   /* ===================== WEDDING BUSY MAP ===================== */
-  // Heat per day: open tasks for that month spread the pressure; Saturday
-  // power blocks and Tue/Thu check-ins add weight; pinned events add more.
-  // Finish tasks → the month visibly cools down.
-  function heatLevel(iso, openByMonth) {
-    const d = DateU.parse(iso); const m = d.getMonth() + 1;
-    const mk = ({ 6: "june", 7: "july", 8: "august", 9: "september", 10: "october" })[m] || (m === 11 ? "nov-week" : null);
-    if (!mk) return 0;
-    let h = (openByMonth[mk] || 0) * 0.35;
-    const dow = d.getDay();
-    if (dow === 6) h += 1.2;
-    if (dow === 2 || dow === 4) h += 0.5;
-    const dl = Store.get().dayLogs[iso];
-    if (dl && dl.custom && dl.custom.length) h += dl.custom.length * 0.8;
-    if (mk === "nov-week") h += 1;
-    return h >= 3.4 ? 4 : h >= 2.4 ? 3 : h >= 1.4 ? 2 : h >= 0.6 ? 1 : 0;
+  // Heat is DYNAMIC: open tasks ÷ days REMAINING in that month. Stall and
+  // the same tasks squeeze into fewer days → the map heats up. Catch up →
+  // it cools. Saturdays (power block) and pinned events add a level.
+  const MONTH_BOUNDS = {
+    june: ["2026-06-01", "2026-06-30"], july: ["2026-07-01", "2026-07-31"],
+    august: ["2026-08-01", "2026-08-31"], september: ["2026-09-01", "2026-09-30"],
+    october: ["2026-10-01", "2026-10-31"], "nov-week": ["2026-11-01", "2026-11-06"]
+  };
+  function monthKeyOf(iso) {
+    const m = DateU.parse(iso).getMonth() + 1;
+    if (m >= 6 && m <= 10) return ["june", "july", "august", "september", "october"][m - 6];
+    if (m === 11 && +iso.slice(8, 10) <= 6) return "nov-week";
+    return null;
   }
+  function monthPressure(mk, openByMonth) {
+    const b = MONTH_BOUNDS[mk]; if (!b) return { p: 0, open: 0, remaining: 0 };
+    const today = DateU.today();
+    if (today > b[1]) return { p: 0, open: openByMonth[mk] || 0, remaining: 0 };
+    const from = today > b[0] ? today : b[0];
+    const remaining = Math.max(1, DateU.daysBetween(from, b[1]) + 1);
+    const open = openByMonth[mk] || 0;
+    return { p: open / remaining, open, remaining };
+  }
+  function heatLevel(iso, openByMonth) {
+    const mk = monthKeyOf(iso); if (!mk) return 0;
+    const p = monthPressure(mk, openByMonth).p;
+    let lvl = p >= 1 ? 4 : p >= 0.6 ? 3 : p >= 0.3 ? 2 : p >= 0.15 ? 1 : 0;
+    if (DateU.dow(iso) === 6) lvl += 1; // Saturday power block
+    const dl = Store.get().dayLogs[iso];
+    if (dl && (dl.custom || []).some((c) => !c.travel)) lvl += 1; // pinned plans
+    if (mk === "nov-week") lvl = Math.max(lvl, 3); // crunch week floor
+    return Math.min(4, lvl);
+  }
+
+  /* ---- Day detail sheet: the wedding picture for one day --------------- */
+  S.calDaySheet = function (iso) {
+    const st = Store.get();
+    const openByMonth = {};
+    st.weddingTasks.forEach((t) => { if (t.status !== "done") openByMonth[t.month] = (openByMonth[t.month] || 0) + 1; });
+    const mk = monthKeyOf(iso);
+    const lvl = heatLevel(iso, openByMonth);
+    const names = ["Calm", "Light", "Busy", "Loaded", "Packed"];
+    let html = '<p class="found"><span class="heat-chip h' + lvl + '">' + names[lvl] + '</span></p>';
+    if (mk) {
+      const pr = monthPressure(mk, openByMonth);
+      const pace = !pr.open ? esc(DATA.monthLabels[mk]) + " tasks: all clear ✓"
+        : pr.remaining === 0 ? pr.open + " open task" + (pr.open === 1 ? "" : "s") + " left over from " + esc(DATA.monthLabels[mk]) + " — overdue."
+        : pr.open + " open " + esc(DATA.monthLabels[mk]) + " task" + (pr.open === 1 ? "" : "s") + " · " + pr.remaining + " day" + (pr.remaining === 1 ? "" : "s") + " left → " +
+          (pr.p > 1 ? "more than one a day. Crunch mode — divide and conquer with " + esc(DATA.profile.partner) + "."
+            : "about 1 task every " + Math.max(1, Math.round(pr.remaining / pr.open)) + " day" + (Math.round(pr.remaining / pr.open) > 1 ? "s" : "") + " keeps you on track.");
+      html += '<p class="found">' + pace + '</p>';
+      const tasks = st.weddingTasks.filter((t) => t.status !== "done" && t.month === mk);
+      const pIco = { high: "🔴", medium: "🟡", low: "🟢" };
+      html += tasks.slice(0, 8).map((t) => '<div class="sug"><span>' + pIco[t.priority] + '</span><div>' + esc(t.title) + '</div></div>').join("");
+      if (tasks.length > 8) html += '<p class="found">…and ' + (tasks.length - 8) + ' more.</p>';
+    }
+    const dt = DATA.days.find((d) => d.dow === DateU.dow(iso));
+    (dt ? dt.blocks : []).forEach((b) => {
+      if (b.type === "wedding-checkin" || b.type === "wedding-block")
+        html += '<div class="sug"><span>💍</span><div>' + esc(b.title) + ' · <b class="tabnum">' + DateU.time12c(b.s) + '–' + DateU.time12c(b.e) + '</b></div></div>';
+    });
+    const dl = st.dayLogs[iso];
+    ((dl && dl.custom) || []).forEach((c) => {
+      html += '<div class="sug"><span>' + (c.travel ? "🚗" : "📌") + '</span><div>' + esc(c.title) + (c.allDay ? ' · all day' : ' · <b class="tabnum">' + DateU.time12c(c.s) + '–' + DateU.time12c(c.e) + '</b>') + '</div></div>';
+    });
+    html += (mk ? '<button class="btn btn-primary big" data-act="weddingCatchup" data-m="' + mk + '">Work ' + esc(DATA.monthLabels[mk]) + '\'s tasks</button>' : '') +
+      '<button class="btn btn-ghost big" data-act="openPlanner" data-date="' + iso + '">📅 Open this day in the planner</button>';
+    return html;
+  };
   S.weddingCal = function () {
     const st = Store.get();
     const today = DateU.today();
@@ -81,13 +134,13 @@ window.Screens = window.Screens || {};
     const legend =
       '<div class="cal-legend">' +
         '<span><i style="background:#F2EFE8"></i>calm</span>' +
-        '<span><i style="background:#DEEAE1"></i>light</span>' +
-        '<span><i style="background:#F3E5BC"></i>busy</span>' +
-        '<span><i style="background:#EFCD92"></i>loaded</span>' +
-        '<span><i style="background:#E8A9A9"></i>packed</span>' +
+        '<span><i style="background:#CFE3D4"></i>light</span>' +
+        '<span><i style="background:#F6DD8F"></i>busy</span>' +
+        '<span><i style="background:#F2AE5E"></i>loaded</span>' +
+        '<span><i style="background:#E2746C"></i>packed</span>' +
       '</div>';
     return '<div class="screen">' + subbar("Busy Map", "#/wedding") + '<div class="wrap">' +
-      '<p class="muted intro">Color = how loaded each day is between now and "I do." Knock out tasks and watch the months cool off. Tap any day to open it in the planner.</p>' +
+      '<p class="muted intro">Color = open tasks squeezed into the days <b>left</b> in each month — fall behind and it heats up, catch up and it cools. Tap any day for its wedding picture.</p>' +
       legend + overdueBanner(true) + cal +
       '</div></div>';
   };
