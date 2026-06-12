@@ -451,17 +451,73 @@ window.Act = (function () {
     },
     taskMonth(el) { App.ui.taskMonth = el.value; App.render(); },
     taskStatus(el) { App.ui.taskStatus = el.dataset.v; App.render(); },
+    // --- task-editor helpers (shared by add + edit) ---
+    monthKeyFromDate(iso) { const m = +iso.slice(5, 7), d = +iso.slice(8, 10); if (m >= 6 && m <= 10) return ["june", "july", "august", "september", "october"][m - 6]; if (m === 11 && d <= 6) return "nov-week"; return null; },
+    taskMonthOpts(sel) { return Object.keys(DATA.monthLabels).map((k) => '<option value="' + k + '"' + (sel === k ? " selected" : "") + '>' + UI.esc(DATA.monthLabels[k]) + '</option>').join(""); },
+    whoOptions(sel) {
+      const ppl = Store.get().people || [];
+      const builtins = [["manny", "Manny"], ["nicole", "Nicole"], ["both", "Both"], ["coordinator", "Coordinator"], ["vendor", "Vendor"]];
+      let o = builtins.map((b) => '<option value="' + b[0] + '"' + (sel === b[0] ? " selected" : "") + '>' + b[1] + '</option>').join("");
+      o += ppl.map((p) => '<option value="' + UI.esc(p) + '"' + (sel === p ? " selected" : "") + '>' + UI.esc(p) + '</option>').join("");
+      if (sel && builtins.every((b) => b[0] !== sel) && ppl.indexOf(sel) < 0) o += '<option value="' + UI.esc(sel) + '" selected>' + UI.esc(sel) + '</option>';
+      return o + '<option value="__new__">➕ Add someone…</option>';
+    },
+    whoField(sel) {
+      return '<label class="field"><span>Who\'s on it?</span><select id="tw" class="sel">' + Act.whoOptions(sel) + '</select></label>' +
+        '<div class="field" id="twnewwrap" style="display:none"><span>New person\'s name</span>' +
+        '<div class="presets"><input id="twnew" placeholder="e.g. Aunt Rosa" style="flex:1;min-width:0"><button type="button" class="chipbtn" id="twaddbtn">Add</button></div></div>';
+    },
+    wirePeople(body) {
+      const sel = body.querySelector("#tw"), wrap = body.querySelector("#twnewwrap"), inp = body.querySelector("#twnew"), btn = body.querySelector("#twaddbtn");
+      if (!sel || !btn) return;
+      sel.addEventListener("change", () => { if (sel.value === "__new__") { wrap.style.display = ""; inp.focus(); } else wrap.style.display = "none"; });
+      btn.addEventListener("click", () => { const name = Store.addPerson(inp.value); if (!name) return UI.toast("Type a name"); sel.innerHTML = Act.whoOptions(name); wrap.style.display = "none"; inp.value = ""; });
+    },
     addTask() {
-      const months = Object.keys(DATA.monthLabels).map((k) => '<option value="' + k + '">' + UI.esc(DATA.monthLabels[k]) + '</option>').join("");
+      const dm = (App.ui.taskMonth && App.ui.taskMonth !== "all") ? App.ui.taskMonth : null;
       UI.sheet("Add wedding task",
         '<label class="field"><span>Task</span><input id="tt" autofocus></label>' +
         '<label class="field"><span>Details</span><input id="td"></label>' +
-        '<label class="field"><span>Month</span><select id="tm" class="sel">' + months + '</select></label>' +
-        '<label class="field"><span>Who</span><select id="tw" class="sel"><option value="manny">Manny</option><option value="nicole">Nicole</option><option value="both">Both</option><option value="coordinator">Coordinator</option><option value="vendor">Vendor</option></select></label>' +
-        '<label class="field"><span>Priority</span><select id="tp" class="sel"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>' +
-        '<button class="btn btn-primary big" data-act="saveTask">Add task</button>');
+        '<label class="field"><span>Due date (optional)</span><input type="date" id="tdue"></label>' +
+        '<label class="field"><span>Month</span><select id="tm" class="sel">' + Act.taskMonthOpts(dm) + '</select></label>' +
+        Act.whoField("both") +
+        '<label class="field"><span>Priority</span><select id="tp" class="sel"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></label>' +
+        '<button class="btn btn-primary big" data-act="saveTask">Add task</button>',
+        (body) => Act.wirePeople(body));
     },
-    saveTask() { const title = val("tt"); if (!title) return UI.toast("Enter a task"); Store.addTask({ title, desc: val("td"), month: val("tm"), who: val("tw"), priority: val("tp") }); App.closeSheets(); App.render(); UI.toast("Task added"); },
+    saveTask() {
+      const title = val("tt"); if (!title) return UI.toast("Enter a task");
+      const due = val("tdue"); let month = val("tm"); if (due) { const mk = Act.monthKeyFromDate(due); if (mk) month = mk; }
+      let who = val("tw"); if (who === "__new__") who = "both";
+      Store.addTask({ title, desc: val("td"), month, who, priority: val("tp"), due: due || null });
+      App.closeSheets(); App.render(); UI.toast("Task added" + (due ? " · due " + DateU.fmtShort(due) : ""));
+    },
+    editTask(el) {
+      const t = Store.get().weddingTasks.find((x) => x.id === +el.dataset.id); if (!t) return;
+      UI.sheet("Edit task",
+        '<input type="hidden" id="eid" value="' + t.id + '">' +
+        '<label class="field"><span>Task</span><input id="tt" value="' + UI.esc(t.title) + '"></label>' +
+        '<label class="field"><span>Details</span><input id="td" value="' + UI.esc(t.desc || "") + '"></label>' +
+        '<label class="field"><span>Due date (optional)</span><input type="date" id="tdue" value="' + (t.due || "") + '"></label>' +
+        '<label class="field"><span>Month</span><select id="tm" class="sel">' + Act.taskMonthOpts(t.month) + '</select></label>' +
+        Act.whoField(t.who) +
+        '<label class="field"><span>Priority</span><select id="tp" class="sel">' + ["high", "medium", "low"].map((p) => '<option value="' + p + '"' + (t.priority === p ? " selected" : "") + '>' + p.charAt(0).toUpperCase() + p.slice(1) + '</option>').join("") + '</select></label>' +
+        '<label class="field"><span>Status</span><select id="tstat" class="sel">' + [["open", "Open"], ["in-progress", "In progress"], ["done", "Done"]].map((s) => '<option value="' + s[0] + '"' + (t.status === s[0] ? " selected" : "") + '>' + s[1] + '</option>').join("") + '</select></label>' +
+        '<button class="btn btn-primary big" data-act="saveEditTask">Save changes</button>' +
+        '<button class="btn btn-ghost big danger" data-act="deleteTask" data-id="' + t.id + '">🗑 Delete task</button>',
+        (body) => Act.wirePeople(body));
+    },
+    saveEditTask() {
+      const id = +val("eid"); const title = val("tt"); if (!title) return UI.toast("Enter a task");
+      const due = val("tdue"); let month = val("tm"); if (due) { const mk = Act.monthKeyFromDate(due); if (mk) month = mk; }
+      let who = val("tw"); if (who === "__new__") who = "both";
+      Store.setTask({ id, title, desc: val("td"), month, who, priority: val("tp"), status: val("tstat"), due: due || null });
+      App.closeSheets(); App.render(); UI.toast("Task updated");
+    },
+    deleteTask(el) {
+      const id = +el.dataset.id;
+      UI.confirmDialog("Delete this task for good?", () => { Store.deleteTask(id); App.closeSheets(); App.render(); UI.toast("Task deleted"); }, "Delete");
+    },
 
     editVendor(el) {
       const v = Store.get().vendors.find((x) => x.id === +el.dataset.id);

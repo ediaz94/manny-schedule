@@ -251,11 +251,17 @@ window.Screens = window.Screens || {};
     const dn = dinnerIdx != null ? DATA.dinners[dinnerIdx] : null;
     if (dn && dn.defrost && nowM >= 360 && nowM < 720)
       out.push({ i: "🧊", w: 0, t: "Tonight is " + dn.name + " — take the " + dn.defrost + " out of the freezer before you head out." });
-    // Overdue wedding tasks: their month ended and they're still open
+    // Overdue wedding tasks: month ended OR past their due date, still open
     const wo = Screens.weddingOverdue ? Screens.weddingOverdue() : { count: 0 };
     if (wo.count)
       out.push({ i: "💍", w: 1, act: "weddingCatchup", m: wo.oldest,
         t: wo.count + " wedding task" + (wo.count === 1 ? "" : "s") + " from " + DATA.monthLabels[wo.oldest] + (wo.count === 1 ? " is" : " are") + " still open — tap to catch up." });
+    else {
+      // Due in the next couple of days (only when nothing's overdue)
+      const ds = Store.get().weddingTasks.filter((t) => t.status !== "done" && t.due && t.due >= date && DateU.daysBetween(date, t.due) <= 2);
+      if (ds.length) out.push({ i: "📅", w: 1, act: "weddingCatchup", m: ds[0].month,
+        t: ds.length + " wedding task" + (ds.length === 1 ? "" : "s") + " due in the next couple days — tap to see." });
+    }
     // Water pacing: 10 AM – 9 PM, expects steady sipping from wake to bedtime
     if (nowM >= 600 && nowM <= 1260) {
       const tgt = DATA.profile.hydrationTargetOz;

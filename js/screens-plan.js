@@ -21,10 +21,17 @@ window.Screens = window.Screens || {};
     const out = { count: 0, oldest: null };
     Store.get().weddingTasks.forEach((t) => {
       if (t.status === "done") return;
-      if (MONTH_END[t.month] && MONTH_END[t.month] < today) { out.count++; if (!out.oldest) out.oldest = t.month; }
+      const monthOver = MONTH_END[t.month] && MONTH_END[t.month] < today;
+      const dueOver = t.due && t.due < today;
+      if (monthOver || dueOver) { out.count++; if (!out.oldest) out.oldest = t.month; }
     });
     return out;
   };
+  function openDueByDate() {
+    const m = {};
+    Store.get().weddingTasks.forEach((t) => { if (t.status !== "done" && t.due) m[t.due] = (m[t.due] || 0) + 1; });
+    return m;
+  }
   function overdueBanner(tappable) {
     const wo = S.weddingOverdue();
     if (!wo.count) return "";
@@ -58,11 +65,12 @@ window.Screens = window.Screens || {};
     const open = openByMonth[mk] || 0;
     return { p: open / remaining, open, remaining };
   }
-  function heatLevel(iso, openByMonth) {
+  function heatLevel(iso, openByMonth, dueOpen) {
     const mk = monthKeyOf(iso); if (!mk) return 0;
     const p = monthPressure(mk, openByMonth).p;
     let lvl = p >= 1 ? 4 : p >= 0.6 ? 3 : p >= 0.3 ? 2 : p >= 0.15 ? 1 : 0;
     if (DateU.dow(iso) === 6) lvl += 1; // Saturday power block
+    if (dueOpen && dueOpen[iso]) lvl += dueOpen[iso] >= 2 ? 2 : 1; // task(s) due this exact day
     const dl = Store.get().dayLogs[iso];
     if (dl && (dl.custom || []).some((c) => !c.travel)) lvl += 1; // pinned plans
     if (mk === "nov-week") lvl = Math.max(lvl, 3); // crunch week floor
@@ -74,8 +82,9 @@ window.Screens = window.Screens || {};
     const st = Store.get();
     const openByMonth = {};
     st.weddingTasks.forEach((t) => { if (t.status !== "done") openByMonth[t.month] = (openByMonth[t.month] || 0) + 1; });
+    const dueOpen = openDueByDate();
     const mk = monthKeyOf(iso);
-    const lvl = heatLevel(iso, openByMonth);
+    const lvl = heatLevel(iso, openByMonth, dueOpen);
     const names = ["Calm", "Light", "Busy", "Loaded", "Packed"];
     let html = '<p class="found"><span class="heat-chip h' + lvl + '">' + names[lvl] + '</span></p>';
     if (mk) {
@@ -86,9 +95,11 @@ window.Screens = window.Screens || {};
           (pr.p > 1 ? "more than one a day. Crunch mode — divide and conquer with " + esc(DATA.profile.partner) + "."
             : "about 1 task every " + Math.max(1, Math.round(pr.remaining / pr.open)) + " day" + (Math.round(pr.remaining / pr.open) > 1 ? "s" : "") + " keeps you on track.");
       html += '<p class="found">' + pace + '</p>';
-      const tasks = st.weddingTasks.filter((t) => t.status !== "done" && t.month === mk);
+      const dueHere = st.weddingTasks.filter((t) => t.status !== "done" && t.due === iso);
+      html += dueHere.map((t) => '<div class="sug duehere tap" data-act="editTask" data-id="' + t.id + '"><span>📅</span><div><b>Due this day:</b> ' + esc(t.title) + '</div><span class="nchev">›</span></div>').join("");
+      const tasks = st.weddingTasks.filter((t) => t.status !== "done" && t.month === mk && t.due !== iso);
       const pIco = { high: "🔴", medium: "🟡", low: "🟢" };
-      html += tasks.slice(0, 8).map((t) => '<div class="sug"><span>' + pIco[t.priority] + '</span><div>' + esc(t.title) + '</div></div>').join("");
+      html += tasks.slice(0, 8).map((t) => '<div class="sug tap" data-act="editTask" data-id="' + t.id + '"><span>' + pIco[t.priority] + '</span><div>' + esc(t.title) + (t.due ? ' <span class="muted">· 📅 ' + DateU.fmtShort(t.due) + '</span>' : '') + '</div><span class="nchev">›</span></div>').join("");
       if (tasks.length > 8) html += '<p class="found">…and ' + (tasks.length - 8) + ' more.</p>';
     }
     const dt = DATA.days.find((d) => d.dow === DateU.dow(iso));
@@ -109,6 +120,7 @@ window.Screens = window.Screens || {};
     const today = DateU.today();
     const openByMonth = {};
     st.weddingTasks.forEach((t) => { if (t.status !== "done") openByMonth[t.month] = (openByMonth[t.month] || 0) + 1; });
+    const dueOpen = openDueByDate();
     const monthKeys = { 6: "june", 7: "july", 8: "august", 9: "september", 10: "october", 11: "nov-week" };
     const MN = ["June", "July", "August", "September", "October", "November"];
     const WD = ["S", "M", "T", "W", "T", "F", "S"];
@@ -121,7 +133,7 @@ window.Screens = window.Screens || {};
       for (let i = 0; i < off; i++) cells += '<span class="cal-c empty"></span>';
       for (let d = 1; d <= dim; d++) {
         const iso = "2026-" + mm + "-" + String(d).padStart(2, "0");
-        const lvl = heatLevel(iso, openByMonth);
+        const lvl = heatLevel(iso, openByMonth, dueOpen);
         const isWed = iso === "2026-11-06";
         cells += '<button class="cal-c h' + lvl + (iso < today ? " past" : "") + (iso === today ? " today" : "") + (isWed ? " wedding" : "") +
           '" data-act="calDay" data-date="' + iso + '">' + (isWed ? "💍" : d) + '</button>';
@@ -162,16 +174,25 @@ window.Screens = window.Screens || {};
 
     let shown = tasks.filter((t) => (fm === "all" || t.month === fm) && (fs === "all" || (fs === "open" ? t.status !== "done" : t.status === "done")));
     const prioRank = { high: 0, medium: 1, low: 2 };
-    shown.sort((a, b) => (a.status === "done") - (b.status === "done") || prioRank[a.priority] - prioRank[b.priority]);
+    const today = DateU.today();
+    const dk = (t) => (t.status !== "done" && t.due) ? t.due : "9999-99-99";
+    shown.sort((a, b) => (a.status === "done") - (b.status === "done")
+      || (dk(a) < dk(b) ? -1 : dk(a) > dk(b) ? 1 : 0)
+      || prioRank[a.priority] - prioRank[b.priority]);
 
     const rows = shown.length ? shown.map((t) => {
       const cls = t.status === "done" ? "done" : t.status === "in-progress" ? "wip" : "";
       const badge = t.status === "done" ? "✓" : t.status === "in-progress" ? "◐" : "○";
+      const overdue = t.status !== "done" && t.due && t.due < today;
+      const soon = t.status !== "done" && t.due && !overdue && DateU.daysBetween(today, t.due) <= 3;
+      const duePill = t.due ? '<span class="pill due' + (overdue ? " od" : soon ? " soon" : "") + '">📅 ' + esc(DateU.fmtShort(t.due)) + (overdue ? " · late" : "") + '</span>' : "";
       return '<div class="task ' + cls + '">' +
         '<button class="task-check" data-act="taskCycle" data-id="' + t.id + '" title="Tap to change status">' + badge + '</button>' +
-        '<div class="task-b"><div class="t">' + esc(t.title) + '</div>' +
+        '<div class="task-b" data-act="editTask" data-id="' + t.id + '" role="button">' +
+          '<div class="t">' + esc(t.title) + '</div>' +
           (t.desc ? '<div class="d">' + esc(t.desc) + '</div>' : "") +
-          '<div class="task-m"><span class="pill p-' + t.priority + '">' + t.priority + '</span>' +
+          '<div class="task-m">' + duePill +
+            '<span class="pill p-' + t.priority + '">' + t.priority + '</span>' +
             '<span class="pill who">' + esc(t.who) + '</span>' +
             '<span class="pill">' + esc(DATA.monthLabels[t.month]) + '</span></div>' +
         '</div></div>';
@@ -197,6 +218,7 @@ window.Screens = window.Screens || {};
           '<select class="sel" data-act="taskMonth">' + monthOpts + '</select>' +
           UI.segmented([{ v: "all", t: "All" }, { v: "open", t: "Open" }, { v: "done", t: "Done" }], fs, "taskStatus") +
         '</div>' +
+        '<p class="muted taskhint">Tap the circle to change status · tap a task to set a due date, assign a person, or edit.</p>' +
         rows +
       '</div></div>';
   };

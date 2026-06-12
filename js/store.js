@@ -91,7 +91,8 @@ window.Store = (function () {
       sleep: {},
       dateNights: [],
       reviews: [],
-      seenPhase: {}
+      seenPhase: {},
+      people: []
     };
   }
   function seedDinnerPlan() {
@@ -227,6 +228,15 @@ window.Store = (function () {
 
   function setTaskStatus(id, status) { const t = state.weddingTasks.find((x) => x.id === id); if (t) { t.status = status; save(); } }
   function addTask(t) { const id = Math.max(0, ...state.weddingTasks.map((x) => x.id)) + 1; state.weddingTasks.push(Object.assign({ id, status: "open" }, t)); save(); return id; }
+  function setTask(upd) { const t = state.weddingTasks.find((x) => x.id === upd.id); if (t) { Object.assign(t, upd); save(); } }
+  function deleteTask(id) { state.weddingTasks = state.weddingTasks.filter((x) => x.id !== id); save(); }
+  function addPerson(name) {
+    name = (name || "").trim(); if (!name) return "";
+    if (!state.people) state.people = [];
+    const low = name.toLowerCase();
+    if (["manny", "nicole", "both", "coordinator", "vendor"].indexOf(low) < 0 && !state.people.some((p) => p.toLowerCase() === low)) state.people.push(name);
+    save(); return name;
+  }
   function saveVendor(v) { const i = state.vendors.findIndex((x) => x.id === v.id); if (i >= 0) state.vendors[i] = v; save(); }
   function saveMemoriam(m) { const i = state.memoriam.findIndex((x) => x.id === m.id); if (i >= 0) state.memoriam[i] = m; save(); }
 
@@ -255,7 +265,7 @@ window.Store = (function () {
     getDraft, setDraftSet, clearDraft,
     mealLog, setMeal, setDinner, toggleGrocery, resetGrocery,
     addFintech, toggleMilestone, fintechHoursWeek,
-    setTaskStatus, addTask, saveVendor, saveMemoriam,
+    setTaskStatus, addTask, setTask, deleteTask, addPerson, saveVendor, saveMemoriam,
     setMass, massFor, bumpBible, addReview, reviewFor, addDateNight, dateNightsInMonth,
     setPin, exportJSON, importJSON, reset
   };

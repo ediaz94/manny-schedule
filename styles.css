@@ -293,7 +293,12 @@ svg.chart{width:100%; height:auto; display:block}
 .task-check{flex:none; width:28px; height:28px; border-radius:50%; border:2px solid var(--rail); background:#fff; font-size:14px; font-weight:800; color:var(--sage); cursor:pointer}
 .task.done .task-check{background:var(--success); border-color:var(--success); color:#fff}
 .task.wip .task-check{color:var(--warning); border-color:var(--warning)}
-.task-b{flex:1; min-width:0} .task-b .t{font-weight:700; font-size:15px} .task-b .d{font-size:13px; color:var(--ink-2); margin-top:3px; line-height:1.4}
+.task-b{flex:1; min-width:0; cursor:pointer} .task-b .t{font-weight:700; font-size:15px} .task-b .d{font-size:13px; color:var(--ink-2); margin-top:3px; line-height:1.4}
+.pill.due{background:#EAF0EC; color:var(--sage)}
+.pill.due.soon{background:#FBF1DC; color:var(--warning)}
+.pill.due.od{background:#F7E7E7; color:var(--error)}
+.taskhint{font-size:12px; margin:8px 4px 4px}
+.sug.duehere{border-color:#E4DAEC; background:#FBFAFC}
 .task-m{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px}
 .pill{font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:99px; background:#EEE9E1; color:var(--ink-2); text-transform:capitalize}
 .pill.p-high{background:#F7E7E7; color:var(--error)} .pill.p-medium{background:#FBF1DC; color:var(--warning)} .pill.p-low{background:#EAF0EC; color:var(--sage)}
