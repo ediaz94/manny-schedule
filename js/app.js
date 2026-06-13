@@ -24,15 +24,14 @@ window.App = (function () {
     return "more";
   }
   function nav(active) {
+    const tr = Store.tracks();
     const t = (key, tab, icon, label) =>
       '<a class="' + (active === tab ? "active" : "") + '" href="#/' + key + '">' + UI.icon(icon) + label + '</a>';
-    return '<nav class="nav">' +
-      t("", "today", "home", "Today") +
-      t("workout", "workout", "dumbbell", "Workout") +
-      t("wedding", "wedding", "heart", "Wedding") +
-      t("stats", "stats", "chart", "Stats") +
-      t("more", "more", "menu", "More") +
-      '</nav>';
+    let items = t("", "today", "home", "Today");
+    if (tr.fitness !== false) items += t("workout", "workout", "dumbbell", "Workout");
+    if (tr.event !== false) items += t("wedding", "wedding", "heart", "Wedding");
+    items += t("stats", "stats", "chart", "Stats") + t("more", "more", "menu", "More");
+    return '<nav class="nav">' + items + '</nav>';
   }
 
   function render() {
@@ -72,6 +71,7 @@ window.App = (function () {
 
   /* ---- Phase transition modal ---------------------------------------- */
   function maybePhaseModal() {
+    if (Store.get().schedule) return; // personalized users don't use the fitness phases
     const prog = Phases.progress(DateU.today()); if (!prog) return;
     const p = prog.phase, st = Store.get();
     if (st.seenPhase[p.slug]) return;
@@ -88,6 +88,12 @@ window.App = (function () {
   function boot() {
     Store.load();
     if (locked()) { showLock(); return; }
+    if (!Store.get().onboarded) {
+      document.getElementById("app").innerHTML = '<div id="view"></div>';
+      document.getElementById("view").innerHTML = Screens.onboard();
+      window.scrollTo(0, 0);
+      return;
+    }
     document.getElementById("app").innerHTML = '<div id="view"></div><div id="navbar"></div>';
     render();
     maybePhaseModal();
@@ -106,6 +112,30 @@ window.Act = (function () {
 
   const A = {
     closeSheet() { App.closeSheets(); },
+
+    /* Onboarding / personalize */
+    saveSetup() {
+      const name = val("ob_name");
+      if (!name) return UI.toast("Tell us your name first");
+      const checkedDays = (cls) => [].slice.call(document.querySelectorAll("." + cls + ":checked")).map((c) => +c.value);
+      const tracks = {};
+      ["fitness", "faith", "meals", "study", "event"].forEach((k) => { tracks[k] = !!document.querySelector(".ob-track[value=\"" + k + "\"]:checked"); });
+      const a = {
+        name: name, partner: val("ob_partner"),
+        eventName: val("ob_event"), eventDate: val("ob_eventdate"),
+        units: val("ob_units") || "lbs",
+        tracks: tracks, studyLabel: val("ob_study") || "Study", workLabel: val("ob_work") || "Work",
+        wake: val("ob_wake") || "06:30", sleep: val("ob_sleep") || "22:00",
+        workStart: val("ob_workstart") || "08:00", workEnd: val("ob_workend") || "17:00",
+        workDays: checkedDays("ob-workday"), gymDays: checkedDays("ob-gymday"), gymTime: val("ob_gymtime") || "17:30",
+        startWeight: num("ob_sw"), targetWeight: num("ob_tw"),
+        calorieTarget: num("ob_cal"), proteinTarget: num("ob_prot")
+      };
+      Store.completeSetup(a);
+      App.boot();
+      UI.toast("Welcome, " + name + "! 🎉");
+    },
+    reSetup() { UI.confirmDialog("Re-run the setup questions? Your logged data stays — only the schedule and profile get rebuilt from your answers.", () => { const s = Store.get(); s.onboarded = false; Store.save(); App.closeSheets(); App.boot(); }, "Set up again"); },
 
     /* Today / Planner */
     toggleBlock(el) {
@@ -208,7 +238,7 @@ window.Act = (function () {
       }
       Store.save(); App.closeSheets(); App.render();
       // conflict pass: everything planned that this (plus the driving) runs over
-      const dt = DATA.days.find((d) => d.dow === DateU.dow(date));
+      const dt = Store.days().find((d) => d.dow === DateU.dow(date));
       const overl = dt ? dt.blocks.filter((b) => !dl.skipped[b.s] &&
         DateU.toMin(b.s) < spanE && DateU.toMin(b.e) > spanS &&
         ["wake", "rest"].indexOf(b.type) < 0) : [];
@@ -272,7 +302,7 @@ window.Act = (function () {
        the day earlier. Fires once per block per day. */
     maybeEarlyFinish(key) {
       if (!/^\d\d:\d\d$/.test(key)) return; // ignore checklist pseudo-keys (prep0 etc.)
-      const dt = DATA.days.find((d) => d.dow === DateU.dow(T()));
+      const dt = Store.days().find((d) => d.dow === DateU.dow(T()));
       if (!dt) return;
       const idx = dt.blocks.findIndex((b) => b.s === key);
       if (idx < 0) return;
@@ -301,7 +331,7 @@ window.Act = (function () {
         sugs.push({ i: "🍽️", t: "Knock out the dishes while the kitchen's still warm" });
         sugs.push({ i: "🧺", t: "Start a load of laundry — it runs while you relax" });
         if (dow >= 0 && dow <= 4) sugs.push({ i: "🥗", t: "Pack tomorrow's lunch now, skip the morning scramble" });
-        const tmrw = DATA.days.find((d) => d.dow === (dow + 1) % 7);
+        const tmrw = Store.days().find((d) => d.dow === (dow + 1) % 7);
         if (tmrw && tmrw.workoutType) sugs.push({ i: "🎒", t: "Set the gym bag by the door for tomorrow" });
       } else {
         sugs.push({ i: "🧺", t: "Sneak in a load of laundry" });
@@ -510,7 +540,7 @@ window.Act = (function () {
     },
     // Auto-save what's typed (draft, not locked) so nothing is lost on close
     stashRow(ex, sn) {
-      const dt = DATA.days.find((d) => d.dow === DateU.dow(T()));
+      const dt = Store.days().find((d) => d.dow === DateU.dow(T()));
       if (!dt || !dt.workoutType) return;
       Store.setDraftSet(T(), dt.workoutType, ex + "_" + sn, {
         weight: num("w_" + ex + "_" + sn), reps: num("r_" + ex + "_" + sn),
@@ -520,7 +550,7 @@ window.Act = (function () {
     // ✓ on a set row: save + lock (gray out, values stay visible). Tap again to edit.
     saveSet(el) {
       const ex = +el.dataset.ex, sn = +el.dataset.set;
-      const dt = DATA.days.find((d) => d.dow === DateU.dow(T()));
+      const dt = Store.days().find((d) => d.dow === DateU.dow(T()));
       if (!dt || !dt.workoutType) return;
       const row = document.getElementById("row_" + ex + "_" + sn);
       const wIn = document.getElementById("w_" + ex + "_" + sn), rIn = document.getElementById("r_" + ex + "_" + sn);
@@ -554,7 +584,7 @@ window.Act = (function () {
       });
       const now = new Date().toISOString();
       Store.saveWorkout({ id: Store.uid(), date: T(), type, startedAt: now, completedAt: now, note: "", sets });
-      const dt = DATA.days.find((d) => d.dow === DateU.dow(T()));
+      const dt = Store.days().find((d) => d.dow === DateU.dow(T()));
       dt.blocks.forEach((b) => { if (b.type === "workout") Store.toggleBlock(T(), b.s) === undefined; });
       // mark workout blocks done (ensure true, not toggle)
       const dl = Store.day(T()); dt.blocks.forEach((b) => { if (b.type === "workout") dl.completed[b.s] = true; }); Store.save();
@@ -796,7 +826,7 @@ window.Act = (function () {
         ev("defrost-" + BY[d].toLowerCase(), [d], hm, "🧊 Freezer: take out " + dn.defrost + " — tonight is " + dn.name);
       }
       // 3) Gym days — right before the drive to the gym (or the Saturday run)
-      DATA.days.forEach((day) => {
+      Store.days().forEach((day) => {
         if (!day.workoutType) return;
         const wb = day.blocks.find((b) => b.type === "workout");
         if (!wb) return;

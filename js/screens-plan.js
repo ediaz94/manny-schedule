@@ -9,6 +9,78 @@ window.Screens = window.Screens || {};
     return '<div class="topbar sub"><a class="back" href="' + (back || "#/more") + '">‹</a><h1>' + esc(title) + '</h1><span style="width:30px"></span></div>';
   }
   function topbar(title, right) { return '<div class="topbar"><h1>' + esc(title) + '</h1>' + (right || "") + '</div>'; }
+
+  /* ===================== ONBOARDING / SETUP ===================== */
+  S.onboard = function () {
+    const p = Store.get().profile || {};
+    const done = !!p.tracks; // true = re-running setup (prefill from saved profile)
+    const v = (field, dflt) => UI.esc(String(done && p[field] != null ? p[field] : dflt));
+    const tr = done ? p.tracks : { fitness: true, faith: true, meals: true, study: true, event: true };
+    const trk = (k) => (done ? !!tr[k] : true) ? " checked" : "";
+    const wd = done && p.workDays ? p.workDays : [1, 2, 3, 4, 5];
+    const gd = done && p.gymDays ? p.gymDays : [1, 3, 5];
+    const chips = (cls, sel) => '<div class="daychips">' + ["S", "M", "T", "W", "T", "F", "S"].map((d, i) =>
+      '<label class="daychip"><input type="checkbox" class="' + cls + '" value="' + i + '"' + (sel.indexOf(i) >= 0 ? " checked" : "") + '><span>' + d + '</span></label>').join("") + '</div>';
+    const track = (k, ico, label, sub) => '<label class="trackrow"><input type="checkbox" class="ob-track" value="' + k + '"' + trk(k) + '>' +
+      '<span class="tk-b"><b>' + ico + ' ' + label + '</b><small>' + sub + '</small></span></label>';
+
+    return '<div class="screen onboard"><div class="wrap">' +
+      '<div class="ob-hero"><div class="ob-emoji">📋</div><h1>' + (done ? "Update your plan" : "Let’s build your plan") + '</h1>' +
+      '<p class="muted">Answer a few questions and the app builds a daily schedule around your life. You can change anything later.</p></div>' +
+
+      '<div class="ob-sec"><div class="ob-h">About you</div>' +
+        '<label class="field"><span>Your first name</span><input id="ob_name" value="' + v("name", "") + '" placeholder="e.g. Nicole" autofocus></label>' +
+        '<label class="field"><span>Partner’s name <small class="muted">(optional)</small></span><input id="ob_partner" value="' + v("partner", "") + '" placeholder="e.g. Manny"></label>' +
+        '<label class="field"><span>Weight units</span><select id="ob_units" class="sel"><option value="lbs"' + (v("units", "lbs") === "lbs" ? " selected" : "") + '>pounds (lbs)</option><option value="kg"' + (v("units", "lbs") === "kg" ? " selected" : "") + '>kilograms (kg)</option></select></label>' +
+      '</div>' +
+
+      '<div class="ob-sec"><div class="ob-h">A big day to count down to <small class="muted">(optional)</small></div>' +
+        '<label class="field"><span>What is it?</span><input id="ob_event" value="' + v("eventName", "") + '" placeholder="e.g. Our Wedding, a 5K, a trip"></label>' +
+        '<label class="field"><span>When?</span><input type="date" id="ob_eventdate" value="' + v("eventDate", "") + '"></label>' +
+      '</div>' +
+
+      '<div class="ob-sec"><div class="ob-h">What do you want to track?</div>' +
+        track("fitness", "🏋️", "Fitness", "Workouts, weight, the gym") +
+        track("meals", "🍽️", "Meals & food", "Meal plan, recipes, calories") +
+        track("faith", "🙏", "Faith", "Morning & evening prayer") +
+        track("study", "📈", "Study / learning", "A daily focus block") +
+        track("event", "💍", "Event planning", "Tasks & countdown for your big day") +
+      '</div>' +
+
+      '<div class="ob-sec"><div class="ob-h">Your daily rhythm</div>' +
+        '<div class="ob-2"><label class="field"><span>Wake up</span><input type="time" id="ob_wake" value="' + v("wake", "06:30") + '"></label>' +
+        '<label class="field"><span>Lights out</span><input type="time" id="ob_sleep" value="' + v("sleep", "22:00") + '"></label></div>' +
+      '</div>' +
+
+      '<div class="ob-sec"><div class="ob-h">Work / main commitment</div>' +
+        '<label class="field"><span>Call it</span><input id="ob_work" value="' + v("workLabel", "Work") + '" placeholder="Work, School, Clinicals…"></label>' +
+        '<div class="ob-2"><label class="field"><span>Starts</span><input type="time" id="ob_workstart" value="' + v("workStart", "08:00") + '"></label>' +
+        '<label class="field"><span>Ends</span><input type="time" id="ob_workend" value="' + v("workEnd", "17:00") + '"></label></div>' +
+        '<div class="field"><span>Which days?</span>' + chips("ob-workday", wd) + '</div>' +
+      '</div>' +
+
+      '<div class="ob-sec"><div class="ob-h">Fitness <small class="muted">(if you picked it)</small></div>' +
+        '<div class="field"><span>Gym / workout days</span>' + chips("ob-gymday", gd) + '</div>' +
+        '<label class="field"><span>Usual workout time</span><input type="time" id="ob_gymtime" value="' + v("gymTime", "17:30") + '"></label>' +
+        '<div class="ob-2"><label class="field"><span>Current weight</span><input id="ob_sw" type="number" inputmode="decimal" value="' + v("startWeight", "") + '"></label>' +
+        '<label class="field"><span>Goal weight</span><input id="ob_tw" type="number" inputmode="decimal" value="' + v("targetWeight", "") + '"></label></div>' +
+      '</div>' +
+
+      '<div class="ob-sec"><div class="ob-h">Study / learning <small class="muted">(if you picked it)</small></div>' +
+        '<label class="field"><span>What are you working on?</span><input id="ob_study" value="' + v("studyLabel", "") + '" placeholder="e.g. Nursing, Spanish, a certification"></label>' +
+      '</div>' +
+
+      '<div class="ob-sec"><div class="ob-h">Daily food goals</div>' +
+        '<div class="ob-2"><label class="field"><span>Calories</span><input id="ob_cal" type="number" inputmode="numeric" value="' + v("calorieTarget", "2000") + '"></label>' +
+        '<label class="field"><span>Protein (g)</span><input id="ob_prot" type="number" inputmode="numeric" value="' + v("proteinTarget", "150") + '"></label></div>' +
+      '</div>' +
+
+      '<button class="btn btn-primary big" data-act="saveSetup">' + (done ? "Rebuild my schedule" : "Create my schedule ✨") + '</button>' +
+      (done ? '<button class="btn btn-ghost big" data-act="jumpToday">Cancel</button>' : '') +
+      '<div style="height:30px"></div>' +
+      '</div></div>';
+  };
+
   function monthFocusToday() {
     const m = DateU.parse(DateU.today()).getMonth() + 1;
     return ({ 6: "june", 7: "july", 8: "august", 9: "september", 10: "october", 11: "nov-week" })[m] || "all";
@@ -92,7 +164,7 @@ window.Screens = window.Screens || {};
       const pace = !pr.open ? esc(DATA.monthLabels[mk]) + " tasks: all clear ✓"
         : pr.remaining === 0 ? pr.open + " open task" + (pr.open === 1 ? "" : "s") + " left over from " + esc(DATA.monthLabels[mk]) + " — overdue."
         : pr.open + " open " + esc(DATA.monthLabels[mk]) + " task" + (pr.open === 1 ? "" : "s") + " · " + pr.remaining + " day" + (pr.remaining === 1 ? "" : "s") + " left → " +
-          (pr.p > 1 ? "more than one a day. Crunch mode — divide and conquer with " + esc(DATA.profile.partner) + "."
+          (pr.p > 1 ? "more than one a day. Crunch mode — divide and conquer" + (Store.get().profile.partner ? " with " + esc(Store.get().profile.partner) : "") + "."
             : "about 1 task every " + Math.max(1, Math.round(pr.remaining / pr.open)) + " day" + (Math.round(pr.remaining / pr.open) > 1 ? "s" : "") + " keeps you on track.");
       html += '<p class="found">' + pace + '</p>';
       const dueHere = st.weddingTasks.filter((t) => t.status !== "done" && t.due === iso);
@@ -102,7 +174,7 @@ window.Screens = window.Screens || {};
       html += tasks.slice(0, 8).map((t) => '<div class="sug tap" data-act="editTask" data-id="' + t.id + '"><span>' + pIco[t.priority] + '</span><div>' + esc(t.title) + (t.due ? ' <span class="muted">· 📅 ' + DateU.fmtShort(t.due) + '</span>' : '') + '</div><span class="nchev">›</span></div>').join("");
       if (tasks.length > 8) html += '<p class="found">…and ' + (tasks.length - 8) + ' more.</p>';
     }
-    const dt = DATA.days.find((d) => d.dow === DateU.dow(iso));
+    const dt = Store.days().find((d) => d.dow === DateU.dow(iso));
     (dt ? dt.blocks : []).forEach((b) => {
       if (b.type === "wedding-checkin" || b.type === "wedding-block")
         html += '<div class="sug"><span>💍</span><div>' + esc(b.title) + ' · <b class="tabnum">' + DateU.time12c(b.s) + '–' + DateU.time12c(b.e) + '</b></div></div>';
@@ -201,7 +273,7 @@ window.Screens = window.Screens || {};
     return '<div class="screen">' + topbar("Wedding", '<a class="datepill" href="#/wedding/vendors">Vendors</a>') +
       '<div class="wrap">' +
         '<div class="phase wed"><div class="label">November 6, 2026 · Sacred Heart</div>' +
-          '<div class="count"><b class="tabnum">' + (dtw >= 0 ? dtw : 0) + '</b><span>days until you marry ' + esc(DATA.profile.partner) + '</span></div></div>' +
+          '<div class="count"><b class="tabnum">' + (dtw >= 0 ? dtw : 0) + '</b><span>days until you marry ' + esc(Store.get().profile.partner || "your love") + '</span></div></div>' +
         '<div class="stats">' +
           '<div class="stat"><b class="tabnum">' + open + '</b><span>tasks open</span></div>' +
           '<div class="stat"><b class="tabnum">' + done + '</b><span>done</span></div>' +
@@ -367,7 +439,7 @@ window.Screens = window.Screens || {};
         '<a class="mrow" href="#/review"><span>📊 Weekly review</span><span class="chev">›</span></a>' +
         '<a class="mrow" href="#/settings"><span>⚙️ Settings</span><span class="chev">›</span></a>' +
       '</div>' +
-      '<div class="madefor">Made for ' + esc(DATA.profile.name) + ' &amp; ' + esc(DATA.profile.partner) + ' · Nov 6, 2026 💍</div>' +
+      '<div class="madefor">' + (function () { const p = Store.get().profile; return "Made for " + esc(p.name || "you") + (p.partner ? " &amp; " + esc(p.partner) : "") + (p.eventDate ? " · " + esc(DateU.fmtShort(p.eventDate)) : "") + " 💍"; })() + '</div>' +
       '</div></div>';
   };
 
@@ -403,6 +475,7 @@ window.Screens = window.Screens || {};
         '<div class="kv"><span>Daily protein goal</span><b>' + (p.proteinTarget || 180) + ' g</b></div>' +
         '<div class="kv"><span>Wedding</span><b>' + DateU.fmtLong(p.weddingDate) + '</b></div>' +
         '<button class="link" data-act="editProfile">Edit profile ›</button>' +
+        '<button class="link" data-act="reSetup" style="display:block;margin-top:4px">↻ Re-run the setup questions</button>' +
       '</div>' +
       '<div class="card2"><div class="card2-h">Calorie lookup</div>' +
         '<p class="muted">The foods behind the plain-English calorie lookup — browse them all, fix any numbers, or add your own.</p>' +

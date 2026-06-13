@@ -60,8 +60,9 @@ window.Phases = (function () {
     const dayN = Math.min(total, DateU.daysBetween(p.start, dateISO) + 1);
     return { phase: p, dayN, total };
   }
-  function daysToWedding(dateISO) { return DateU.daysBetween(dateISO || DateU.today(), DATA.profile.weddingDate); }
-  return { current, progress, daysToWedding };
+  function eventDate() { const p = (window.Store && Store.get().profile) || {}; return p.eventDate || p.weddingDate || DATA.profile.weddingDate; }
+  function daysToWedding(dateISO) { return DateU.daysBetween(dateISO || DateU.today(), eventDate()); }
+  return { current, progress, daysToWedding, eventDate };
 })();
 
 /* ---------- Store (localStorage) -------------------------------------- */
@@ -94,8 +95,68 @@ window.Store = (function () {
       seenPhase: {},
       people: [],
       foodDb: DATA.foods.map((f, i) => Object.assign({ id: i }, f)),
-      foodDbVersion: DATA.foodSeedVersion
+      foodDbVersion: DATA.foodSeedVersion,
+      onboarded: false
     };
+  }
+
+  /* ---- Personalized schedule generator (from onboarding answers) ------- */
+  const DAYN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const GYM_ROTATION = ["lower-strength", "upper-push", "lower-volume", "upper-pull", "long-run", "active-recovery"];
+  function buildSchedule(a) {
+    const tr = a.tracks || {};
+    const fit = !!tr.fitness, faith = !!tr.faith, meals = tr.meals !== false, study = !!tr.study, event = !!tr.event;
+    const pw = a.partner ? " with " + a.partner : "";
+    const am = (t, n) => DateU.fromMin(Math.max(0, Math.min(1439, DateU.toMin(t) + n)));
+    const gymDays = (a.gymDays || []).slice().sort((x, y) => x - y);
+    const wtype = (dow) => { const i = gymDays.indexOf(dow); return (fit && i >= 0) ? GYM_ROTATION[i % GYM_ROTATION.length] : null; };
+    const wname = (type) => { const w = DATA.workouts.find((x) => x.type === type); return w ? w.name : "Workout"; };
+    const days = [];
+    for (let dow = 0; dow <= 6; dow++) {
+      const work = (a.workDays || []).indexOf(dow) >= 0;
+      const gymType = wtype(dow);
+      const sleep = a.sleep || "21:45";
+      const B = [];
+      const add = (s, e, type, title, desc, extra) => B.push(Object.assign({ s: s, e: e, type: type, title: title, desc: desc || "" }, extra || {}));
+      if (work) {
+        const wake = a.wake || "06:15";
+        add(wake, am(wake, 15), "wake", "Wake & Hydrate", "Water before coffee. Ease into the day.");
+        let t = am(wake, 15);
+        add(t, am(t, 20), "meal", "Breakfast", "Fuel up.", meals ? { meal: "breakfast" } : null); t = am(t, 20);
+        if (faith) { add(t, am(t, 10), "prayer", "Morning Prayer" + pw, "A few quiet minutes.", { prayer: "morning" }); t = am(t, 10); }
+        const wStart = a.workStart || "08:00", wEnd = a.workEnd || "17:00", commute = am(wStart, -20);
+        let morningStudy = false;
+        if (study && DateU.toMin(commute) - DateU.toMin(t) >= 45) { add(t, am(t, 45), "fintech", a.studyLabel || "Study", "Focused study block."); morningStudy = true; }
+        add(commute, wStart, "commute", "Commute", "Podcast or music.");
+        add(wStart, wEnd, "work", a.workLabel || "Work", "Refuel at lunch; step outside after eating.");
+        let ev = wEnd;
+        if (gymType) { const g = a.gymTime || am(wEnd, 30); add(g, am(g, 60), "workout", wname(gymType), "Today's session — log your sets."); add(am(g, 65), am(g, 85), "shower", "Shower & Reset", ""); ev = am(g, 85); }
+        else ev = am(wEnd, 30);
+        add(ev, am(ev, 50), "meal", "Dinner" + pw, "Phones away.", meals ? { meal: "dinner" } : null); ev = am(ev, 50);
+        if (study && !morningStudy) { add(ev, am(ev, 40), "fintech", a.studyLabel || "Study", "Evening study block."); ev = am(ev, 40); }
+        if (event) { add(ev, am(ev, 30), "wedding-checkin", (a.eventName || "Big day") + " check-in", "Knock out the top items.", {}); ev = am(ev, 30); }
+        add(ev, am(ev, 45), "flex", "Flex / Personal", "Hobby, errands, or rest.");
+        if (faith) add(am(sleep, -15), am(sleep, -5), "prayer", "Evening Prayer", "Reflect and give thanks.", { prayer: "evening" });
+        add(am(sleep, -5), sleep, "rest", "Wind Down", "Lay out tomorrow.");
+        add(sleep, am(sleep, 5), "rest", "Lights Out", "Phone away. Cool, dark room.");
+      } else {
+        const wake = am(a.wake || "07:00", 75);
+        add(wake, am(wake, 30), "wake", "Slow Wake", "Sleep in a little. Coffee.");
+        let t = am(wake, 30);
+        add(t, am(t, 30), "meal", "Breakfast", "Relaxed start.", meals ? { meal: "breakfast" } : null); t = am(t, 30);
+        if (faith) { add(t, am(t, 10), "prayer", "Morning Prayer" + pw, "", { prayer: "morning" }); t = am(t, 10); }
+        if (gymType) { add(t, am(t, 75), "workout", wname(gymType), "Weekend session — your big one."); t = am(t, 80); }
+        if (meals) { add(t, am(t, 60), "meal-prep", "Meal Prep", "Cook ahead for the week.", { prep: true }); t = am(t, 60); }
+        if (event) { add(t, am(t, 90), "wedding-block", (a.eventName || "Big day") + " planning", "Big weekly push" + pw + ".", {}); t = am(t, 90); }
+        add(t, am(t, 150), "flex", "Free Time", "Friends, projects, or rest."); t = am(t, 150);
+        add(t, am(t, 60), "meal", "Dinner" + pw, "", meals ? { meal: "dinner" } : null); t = am(t, 60);
+        if (faith) add(am(sleep, 10), am(sleep, 20), "prayer", "Evening Prayer", "", { prayer: "evening" });
+        add(am(sleep, 25), am(sleep, 30), "rest", "Lights Out", "");
+      }
+      B.sort((x, y) => DateU.toMin(x.s) - DateU.toMin(y.s));
+      days.push({ dow: dow, name: DAYN[dow] + (gymType ? " — " + wname(gymType) : ""), workoutType: gymType, blocks: B });
+    }
+    return days;
   }
   // Add new seed foods to a user's saved library (by name) without touching
   // foods they edited or added. Runs once per seed version bump.
@@ -141,6 +202,7 @@ window.Store = (function () {
   function load() {
     try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
     if (!state) { state = defaults(); save(); }
+    else if (!("onboarded" in state)) state.onboarded = true; // grandfather existing users — never force setup on them
     migrateFoodDb(); // merge new seed foods before the generic key-fill below
     const d = defaults();
     for (const k in d) if (!(k in state)) state[k] = d[k];
@@ -151,6 +213,30 @@ window.Store = (function () {
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
   function get() { return state || load(); }
+
+  /* active schedule + chosen life-tracks (fall back to the built-in defaults) */
+  function days() { return (state.schedule && state.schedule.length) ? state.schedule : DATA.days; }
+  function tracks() { return (state.profile && state.profile.tracks) || { fitness: true, faith: true, meals: true, study: true, event: true }; }
+  function completeSetup(a) {
+    const p = state.profile || {};
+    Object.assign(p, {
+      name: a.name || p.name || "You", partner: a.partner || "",
+      eventName: a.eventName || "", eventDate: a.eventDate || "",
+      weddingDate: a.eventDate || p.weddingDate, weddingVenue: a.eventName || p.weddingVenue || "",
+      units: a.units || "lbs",
+      startWeight: a.startWeight != null ? a.startWeight : p.startWeight,
+      targetWeight: a.targetWeight != null ? a.targetWeight : p.targetWeight,
+      calorieTarget: a.calorieTarget || p.calorieTarget || 2100,
+      proteinTarget: a.proteinTarget || p.proteinTarget || 160,
+      tracks: a.tracks, studyLabel: a.studyLabel || "Study", workLabel: a.workLabel || "Work",
+      wake: a.wake, sleep: a.sleep, workStart: a.workStart, workEnd: a.workEnd,
+      workDays: a.workDays, gymDays: a.gymDays, gymTime: a.gymTime
+    });
+    state.profile = p;
+    state.schedule = buildSchedule(a);
+    state.onboarded = true;
+    save();
+  }
 
   function day(dateISO) {
     const d = dateISO || DateU.today();
@@ -294,7 +380,7 @@ window.Store = (function () {
   function reset() { state = defaults(); save(); }
 
   return {
-    load, save, get, day, toggleBlock, skipBlock, addWater, setPrayer,
+    load, save, get, days, tracks, completeSetup, day, toggleBlock, skipBlock, addWater, setPrayer,
     addWeight, latestWeight, uid, saveWorkout, lastWorkout, lastSet,
     getDraft, setDraftSet, clearDraft,
     mealLog, setMeal, setDinner, dayFoods, addFood, delFood, dayNutrition,

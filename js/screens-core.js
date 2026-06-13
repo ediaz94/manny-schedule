@@ -5,7 +5,7 @@ window.Screens = window.Screens || {};
 (function (S) {
   const esc = UI.esc;
 
-  function dayFor(dateISO) { return DATA.days.find((d) => d.dow === DateU.dow(dateISO)); }
+  function dayFor(dateISO) { return Store.days().find((d) => d.dow === DateU.dow(dateISO)); }
   function workoutFor(type) { return DATA.workouts.find((w) => w.type === type) || null; }
   function blockEmoji(b) { return (DATA.mealEmojiByTitle[b.title]) || DATA.blockIcon[b.type] || "•"; }
 
@@ -28,7 +28,8 @@ window.Screens = window.Screens || {};
     const prog = Phases.progress(date);
     const dtw = Phases.daysToWedding(date);
     const dl = Store.day(date);
-    const prof = DATA.profile;
+    const prof = Store.get().profile;
+    const onboarded = !!(Store.get().schedule && Store.get().schedule.length);
     const dinnerIdx = Store.get().dinnerPlan[DateU.dow(date)];
     const todaysDinner = dinnerIdx != null ? DATA.dinners[dinnerIdx] : null;
     // Active "pull the evening earlier" shift: display-only — completion keys
@@ -39,7 +40,19 @@ window.Screens = window.Screens || {};
       : { s: b.s, e: b.e });
 
     let phaseCard;
-    if (prog) {
+    if (onboarded) {
+      const tracks = Store.tracks();
+      const greet = (function () { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening"; })();
+      if (tracks.event && prof.eventDate) {
+        phaseCard = '<div class="phase">' +
+          '<div class="label">' + esc(prof.eventName || "Your big day") + ' · ' + esc(DateU.fmtShort(prof.eventDate)) + '</div>' +
+          '<div class="pname">' + greet + ', ' + esc(prof.name) + '.</div>' +
+          '<div class="count"><b class="tabnum">' + (dtw >= 0 ? dtw : 0) + '</b><span>days to go' + (prof.partner ? '<br>you &amp; ' + esc(prof.partner) : '') + '</span></div></div>';
+      } else {
+        phaseCard = '<div class="phase"><div class="label">' + esc(DateU.fmtLong(date)) + '</div>' +
+          '<div class="pname">' + greet + ', ' + esc(prof.name) + '. Let\'s make it count.</div></div>';
+      }
+    } else if (prog) {
       const p = prog.phase, pct = prog.dayN / prog.total * 100;
       phaseCard =
         '<div class="phase">' +
@@ -599,7 +612,7 @@ window.Screens = window.Screens || {};
     return '<div class="screen">' + subbar("Faith", "#/more") + '<div class="wrap">' +
       '<div class="card2"><div class="card2-h">Today\'s prayer</div>' +
         '<button class="prayer-row ' + (dl.prayerM ? "on" : "") + '" data-act="prayer" data-which="morning">' +
-          '<span class="check ' + (dl.prayerM ? "on" : "") + '">' + (dl.prayerM ? "✓" : "") + '</span>🌅 Morning Prayer with ' + esc(DATA.profile.partner) + '</button>' +
+          '<span class="check ' + (dl.prayerM ? "on" : "") + '">' + (dl.prayerM ? "✓" : "") + '</span>🌅 Morning Prayer' + (Store.get().profile.partner ? ' with ' + esc(Store.get().profile.partner) : '') + '</button>' +
         '<button class="prayer-row ' + (dl.prayerE ? "on" : "") + '" data-act="prayer" data-which="evening">' +
           '<span class="check ' + (dl.prayerE ? "on" : "") + '">' + (dl.prayerE ? "✓" : "") + '</span>🌙 Evening Prayer / Examen</button>' +
       '</div>' +
