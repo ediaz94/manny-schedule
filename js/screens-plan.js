@@ -285,6 +285,7 @@ window.Screens = window.Screens || {};
           '<a class="tile" href="#/wedding/memoriam">🕯️<span>In Memoriam</span></a>' +
           '<button class="tile" data-act="addTask">➕<span>Add task</span></button>' +
         '</div>' +
+        '<button class="btn btn-ghost" data-act="shareWedding" style="margin-top:4px">📤 Share the list with ' + esc(Store.get().profile.partner || "your partner") + '</button>' +
         overdueBanner(true) +
         '<div class="filters">' +
           '<select class="sel" data-act="taskMonth">' + monthOpts + '</select>' +

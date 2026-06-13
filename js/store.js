@@ -350,6 +350,44 @@ window.Store = (function () {
   function addTask(t) { const id = Math.max(0, ...state.weddingTasks.map((x) => x.id)) + 1; state.weddingTasks.push(Object.assign({ id, status: "open" }, t)); save(); return id; }
   function setTask(upd) { const t = state.weddingTasks.find((x) => x.id === upd.id); if (t) { Object.assign(t, upd); save(); } }
   function deleteTask(id) { state.weddingTasks = state.weddingTasks.filter((x) => x.id !== id); save(); }
+  // Wedding-task sharing: a compact payload of only what's changed from the
+  // shared seed list + any custom tasks added. Both phones seed the same 37
+  // tasks (ids 0–36), so we only ship the diffs.
+  function weddingSyncPayload() {
+    const SEED_N = DATA.weddingTasks.length;
+    const base = [];
+    state.weddingTasks.forEach((t) => {
+      const seed = DATA.weddingTasks[t.id];
+      if (t.id < SEED_N && seed) {
+        if (t.status !== "open" || t.due || t.who !== seed.who || t.priority !== seed.p) {
+          const e = { i: t.id, s: t.status, w: t.who, p: t.priority };
+          if (t.due) e.u = t.due;
+          base.push(e);
+        }
+      }
+    });
+    const add = state.weddingTasks.filter((t) => !(t.id < SEED_N && DATA.weddingTasks[t.id]))
+      .map((t) => ({ t: t.title, d: t.desc || "", m: t.month, w: t.who, p: t.priority, s: t.status, u: t.due || "" }));
+    return { v: 1, base: base, add: add };
+  }
+  function applyWeddingSync(payload) {
+    if (!payload || payload.v !== 1) return 0;
+    let n = 0;
+    (payload.base || []).forEach((e) => {
+      const t = state.weddingTasks.find((x) => x.id === e.i); if (!t) return;
+      t.status = (t.status === "done" || e.s === "done") ? "done" : e.s; // never undo a completed task
+      if (e.u) t.due = e.u; if (e.w) t.who = e.w; if (e.p) t.priority = e.p;
+      n++;
+    });
+    (payload.add || []).forEach((e) => {
+      if (!e.t) return;
+      if (state.weddingTasks.some((x) => (x.title || "").toLowerCase() === e.t.toLowerCase())) return;
+      const id = Math.max(DATA.weddingTasks.length - 1, ...state.weddingTasks.map((x) => x.id)) + 1;
+      state.weddingTasks.push({ id: id, title: e.t, desc: e.d || "", month: e.m || "june", who: e.w || "both", priority: e.p || "medium", status: e.s || "open", due: e.u || null });
+      n++;
+    });
+    save(); return n;
+  }
   function addPerson(name) {
     name = (name || "").trim(); if (!name) return "";
     if (!state.people) state.people = [];
@@ -386,7 +424,7 @@ window.Store = (function () {
     mealLog, setMeal, setDinner, dayFoods, addFood, delFood, dayNutrition,
     foodDb, addFoodDb, setFoodDb, delFoodDb, resetFoodDb, toggleGrocery, resetGrocery,
     addFintech, toggleMilestone, fintechHoursWeek,
-    setTaskStatus, addTask, setTask, deleteTask, addPerson, saveVendor, saveMemoriam,
+    setTaskStatus, addTask, setTask, deleteTask, addPerson, weddingSyncPayload, applyWeddingSync, saveVendor, saveMemoriam,
     setMass, massFor, bumpBible, addReview, reviewFor, addDateNight, dateNightsInMonth,
     setPin, exportJSON, importJSON, reset
   };

@@ -408,6 +408,7 @@ textarea{resize:vertical}
 .daychip{flex:1} .daychip input{display:none}
 .daychip span{display:flex; align-items:center; justify-content:center; height:40px; border:1px solid var(--border); border-radius:10px; font-weight:700; font-size:14px; color:var(--ink-2); background:#fff; cursor:pointer}
 .daychip input:checked + span{background:var(--purple); border-color:var(--purple); color:#fff}
+.sharebox{width:100%; font-size:12px; font-family:monospace; border:1px solid var(--border); border-radius:10px; padding:10px; background:#fff; color:var(--ink-2); resize:none; word-break:break-all}
 .kv{display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--border); font-size:14.5px}
 .kv span{color:var(--ink-2)}
 .card2 .btn{margin:6px 0}

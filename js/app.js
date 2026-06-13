@@ -97,6 +97,20 @@ window.App = (function () {
     document.getElementById("app").innerHTML = '<div id="view"></div><div id="navbar"></div>';
     render();
     maybePhaseModal();
+    maybeSync();
+  }
+  // Did someone open a shared-wedding-list link? Offer to merge it in.
+  function maybeSync() {
+    try {
+      const b64 = new URLSearchParams(location.search).get("sync");
+      if (!b64) return;
+      history.replaceState(null, "", location.pathname + (location.hash || "")); // don't re-merge on refresh
+      const partner = (Store.get().profile.partner) || "Someone";
+      UI.sheet(partner + " shared the wedding list 💍",
+        '<p class="found">Merge their tasks into yours? Anything they marked <b>done</b> gets checked off, new tasks are added, and nothing is deleted.</p>' +
+        '<button class="btn btn-primary big" data-act="applySync" data-p="' + encodeURIComponent(b64) + '">Merge the list</button>' +
+        '<button class="btn btn-ghost big" data-act="closeSheet">Not now</button>');
+    } catch (e) {}
   }
 
   return { boot, render, closeSheets, ui, hashPin: hash };
@@ -136,6 +150,28 @@ window.Act = (function () {
       UI.toast("Welcome, " + name + "! 🎉");
     },
     reSetup() { UI.confirmDialog("Re-run the setup questions? Your logged data stays — only the schedule and profile get rebuilt from your answers.", () => { const s = Store.get(); s.onboarded = false; Store.save(); App.closeSheets(); App.boot(); }, "Set up again"); },
+
+    /* Share the wedding task list (free, no server) */
+    shareWedding() {
+      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(Store.weddingSyncPayload()))));
+      const url = location.origin + location.pathname + "?sync=" + encodeURIComponent(b64);
+      const partner = Store.get().profile.partner || "your partner";
+      if (navigator.share) { navigator.share({ title: "Our wedding tasks", text: "Open this to sync our wedding to-do list:", url: url }).catch(function () {}); return; }
+      try { if (navigator.clipboard) navigator.clipboard.writeText(url); } catch (e) {}
+      UI.sheet("Share with " + partner,
+        '<p class="found">Send this link to ' + UI.esc(partner) + '. When they open it on their phone, your wedding tasks merge into theirs. Re-share anytime you make changes.</p>' +
+        '<textarea readonly rows="4" class="sharebox" onclick="this.select()">' + UI.esc(url) + '</textarea>' +
+        '<p class="muted" style="font-size:12.5px;margin-top:6px">Copied to your clipboard — paste it into a text or email.</p>' +
+        '<button class="btn btn-primary big" data-act="closeSheet">Done</button>');
+    },
+    applySync(el) {
+      try {
+        const payload = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(el.dataset.p)))));
+        const n = Store.applyWeddingSync(payload);
+        App.closeSheets(); App.render();
+        UI.toast(n ? "Merged — " + n + " task" + (n === 1 ? "" : "s") + " updated 💍" : "Already up to date");
+      } catch (e) { UI.toast("Couldn't read that link"); }
+    },
 
     /* Today / Planner */
     toggleBlock(el) {
