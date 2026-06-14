@@ -461,10 +461,34 @@ window.Screens = window.Screens || {};
   };
 
   /* ===================== SETTINGS ===================== */
+  // Live-sync card — only shown when Firebase sync is configured in the build.
+  function syncCard() {
+    if (!window.Sync || !Sync.available()) return "";
+    const partner = esc(Store.get().profile.partner || "your partner");
+    if (!Sync.enabled()) {
+      return '<div class="card2" id="syncCard"><div class="card2-h">Live sync</div>' +
+        '<p class="muted">Keep your wedding to-do list in step with ' + partner + ' automatically. Check something off here and it checks off on their phone within seconds — no more sharing links.</p>' +
+        '<button class="btn btn-primary" data-act="startSync">🔗 Turn on live sync</button>' +
+        '<p class="muted" style="font-size:12.5px;margin-top:8px">The “Share the list” link still works too, in case sync is ever off.</p>' +
+      '</div>';
+    }
+    const st = Sync.getStatus();
+    const label = st === "live" ? "Live — synced with " + partner
+      : st === "error" ? "Can’t reach sync — will retry"
+      : st === "connecting" ? "Connecting…" : "Starting…";
+    const cls = st === "live" ? "ok" : st === "error" ? "bad" : "wait";
+    return '<div class="card2" id="syncCard"><div class="card2-h">Live sync</div>' +
+      '<div class="syncpill ' + cls + '"><span class="syncdot"></span>' + esc(label) + '</div>' +
+      '<button class="btn btn-ghost" data-act="sendJoinLink">📨 Send ' + partner + ' the join link</button>' +
+      '<button class="btn btn-ghost" data-act="stopSync" style="margin-top:6px">Turn off live sync</button>' +
+    '</div>';
+  }
+
   S.settings = function () {
     const p = Store.get().profile;
     const hasPin = !!Store.get().pinHash;
     return '<div class="screen">' + subbar("Settings", "#/more") + '<div class="wrap">' +
+      syncCard() +
       '<div class="card2"><div class="card2-h">Profile</div>' +
         '<div class="kv"><span>Name</span><b>' + esc(p.name) + '</b></div>' +
         '<div class="kv"><span>Height</span><b>' + Math.floor(p.heightIn / 12) + "′" + (p.heightIn % 12) + '″</b></div>' +

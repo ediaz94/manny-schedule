@@ -1,6 +1,6 @@
 # Manny's Plan — Project Handoff
 
-A consolidated, self-contained summary of this project so a new session (AI or human) can pick up exactly where we left off. Last updated at commit `b254efe`, service-worker cache `manny-plan-v23`.
+A consolidated, self-contained summary of this project so a new session (AI or human) can pick up exactly where we left off. Last updated at service-worker cache `manny-plan-v24` (adds **live wedding-task sync** via Firebase — see §5/§9).
 
 ---
 
@@ -15,6 +15,7 @@ A **mobile-first personal life-management web app** for **Manny Diaz** (and now 
 
 - **Live app (on the user's phone):** https://ediaz94.github.io/manny-schedule/ (GitHub Pages)
 - **Repo:** https://github.com/ediaz94/manny-schedule — GitHub user **ediaz94**, `gh` CLI is authenticated (repo + workflow scopes). Commit identity: name "Manny Diaz", email emmanueldiaz123169@gmail.com (set per-clone).
+- **Firebase (live sync backend):** project **Diaz Ferara Household** (`diaz-ferara-household`, Spark/free, $0), web app "Manny's Plan", Realtime Database in us-central1. The public-safe web config is hardcoded in `js/sync.js`. DB security rules are **capability-based**: `rooms/$room` is read/write only when `$room.length >= 20` (the room token *is* the shared secret), and `/rooms` can't be enumerated. Console: console.firebase.google.com (logged in as Emmanuel). This project also hosts an unrelated "Money Tracker" web app — leave it alone.
 - **Local working copy:** `C:\Users\ED\Desktop\Claude\Code\manny-schedule` (Windows, PowerShell).
 - **Persistent AI memory:** `C:\Users\ED\.claude\projects\C--Users-ED-Desktop-Claude-Code\memory\` (auto-loads in same-folder sessions; `project_manny_schedule.md` is the detailed record).
 
@@ -22,7 +23,7 @@ A **mobile-first personal life-management web app** for **Manny Diaz** (and now 
 
 1. **The local Desktop folder keeps getting WIPED** (suspected OneDrive "free up space" / cleanup; files vanish mid-session, not in Recycle Bin). **GitHub is the source of truth.** Before any work: check the folder exists; if not, `git clone https://github.com/ediaz94/manny-schedule.git` and re-set git identity. **Commit + push promptly** — never leave significant work uncommitted.
 2. **The Write tool once silently failed to persist 5 large files** despite reporting success. **Verify big/multiple writes landed** (PowerShell `Test-Path` / `Select-String`).
-3. **Bump the service-worker cache version** in `sw.js` (`const CACHE = "manny-plan-vN"`) on EVERY change to app files, or phones serve stale cached code. Currently **v23**.
+3. **Bump the service-worker cache version** in `sw.js` (`const CACHE = "manny-plan-vN"`) on EVERY change to app files, AND keep the `ASSETS` precache list in sync (it lists every `js/*.js`). Or phones serve stale cached code. Currently **v24**.
 4. **`preview_screenshot` is unreliable in this environment** (times out even when the page is fine). **Verify via `preview_eval`** (DOM/JS inspection) and live-URL `Invoke-WebRequest` fetches instead.
 5. **Tell the user to fully close & reopen the installed app (twice if needed)** after a deploy — the service worker updates on the second load.
 6. After any change: bump sw → verify on disk → verify in preview via eval → `git add/commit/push` → poll the live URL until the new code is served.
@@ -58,14 +59,14 @@ A **mobile-first personal life-management web app** for **Manny Diaz** (and now 
   - **Calorie + macro tracker:** P/C/F bars vs editable goals, green/yellow/red food-quality tally, **coach** that gets you back on track (over budget / low protein / undereating / dialed-in).
   - **Editable 1,328-food database** (Settings → Food list: search, edit, add, delete, reset) with **plain-English lookup** ("2 eggs and 2 sourdough toast" → 336 cal) AND a **type-ahead picker** ("chicken tenders" → grilled/fried/etc.) with quantity cart. Custom foods carry macros + color.
   - Grocery list (check off, out-of-stock, reset), Saturday meal-prep checklist.
-- **Wedding:** countdown dashboard, 38 tasks with **due dates** + **custom "Who" people** + status cycling + add/edit/delete, vendors (costs/contracts), In Memoriam tracker, **Busy Map** (dynamic heat = open tasks ÷ days left in month; tap a day for its wedding picture), overdue reminders, and **"Share the list"** — a link you text to merge wedding tasks between phones (on-demand, not live).
+- **Wedding:** countdown dashboard, 38 tasks with **due dates** + **custom "Who" people** + status cycling + add/edit/delete, vendors (costs/contracts), In Memoriam tracker, **Busy Map** (dynamic heat = open tasks ÷ days left in month; tap a day for its wedding picture), overdue reminders, **"Share the list"** — a link you text to merge wedding tasks between phones (on-demand) — and **Live sync** (Settings → Live sync): real-time two-way sync of the wedding list with the partner over Firebase. Turn it on → mints a room → send the partner a `?room=` join link; from then on, check-offs/edits/added tasks propagate automatically. Reuses the same merge contract as the share-link (done wins, never undoes, never deletes, dedupes custom by title).
 - **Reminders:** in-app smart nudges (open-app only) + a downloadable **.ics calendar file** (Settings) for real iPhone notifications (leave-for-work, per-day defrost, gym days, water checks, Friday weigh-in) — all auto-stop after Nov 6.
 - **Faith:** morning/evening prayer, Bible-in-a-Year episode tracker, Sunday Mass log.
 - **Other:** Stats hub, Weekly Review (date-ranged), More menu (Grocery/Meal-prep removed from here — they live under Meals), Settings (profile + macro goals, PIN, export/import backup, food list), 4-digit PIN lock.
 
 ## 6. Key conventions & gotchas
 
-- **sw cache:** bump `manny-plan-vN` every change (now v23).
+- **sw cache:** bump `manny-plan-vN` every change (now v24); also add any new `js/*.js` file to the `ASSETS` precache list in `sw.js`.
 - **foodDb migration:** `foodSeedVersion` (now 3); `migrateFoodDb()` adds new seed foods by name AND backfills new fields (e.g. carbs/fat/color) onto existing/edited foods without clobbering user edits.
 - **Onboarding gate:** `state.onboarded`; existing users grandfathered to `true` in `load()` so they never see the wizard. `Store.days()` returns `state.schedule || DATA.days` (Manny → default).
 - **Wedding seed = 38 tasks** (ids 0–37). Share-sync ships only diffs + custom tasks; merge keeps "done" on either side, dedupes custom by title, never deletes, idempotent.
@@ -76,7 +77,7 @@ A **mobile-first personal life-management web app** for **Manny Diaz** (and now 
 
 - **Editable dinners** (let users add their own recipes like the food list) — offered, not yet built.
 - **True micronutrients:** needs an online DB. **USDA FoodData Central is FREE** (real vitamins/minerals, free API key, ~30 req/min) — would require a small **free-tier serverless proxy** (Cloudflare Workers / Netlify Functions) to hide the key. Net cost ≈ **$0/month**, the trade-off is added maintenance surface. Paid alts: Edamam (~$49/mo+), Nutritionix (~$1,850/mo, overkill). User asked about cost; decision pending.
-- **Live wedding-task sync** (vs. the current share-link): would need a shared backend — free **Firebase** Realtime DB is the candidate (config is public-safe; one-time setup; small maintenance surface). Offered as opt-in.
+- ~~**Live wedding-task sync**~~ — ✅ **BUILT** (v24, Firebase). Possible follow-ups: (a) sync vendors/memoriam too (currently tasks only); (b) custom-task *deletions* don't propagate by design (the merge "never deletes", so a deleted custom task reappears from the partner's copy on the next sync) — revisit if it annoys.
 - Weekend schedule tuning, more foods/recipes on request.
 
 ## 8. How to use this handoff in a new session
@@ -84,3 +85,15 @@ A **mobile-first personal life-management web app** for **Manny Diaz** (and now 
 - If you open a new session **in the same folder** (`...\Code`), the AI auto-loads its memory (incl. `project_manny_schedule.md`) — continuity is automatic.
 - For a **fresh/relocated session**, point it at this file or the repo. First action should always be: **confirm the local clone exists (re-clone from GitHub if wiped), then read this file.**
 - The repo is the durable record; the live site reflects the latest commit on `main`.
+
+## 9. Live sync — how it works (v24)
+
+- **New file `js/sync.js` (`window.Sync`).** Loaded after `store.js`, before `ui.js`. Imports the Firebase modular SDK from gstatic **lazily** (only when sync is turned on) via dynamic `import()` — non-sync users and offline use are unaffected.
+- **It invents no merge logic.** It ferries the *existing* share-link payloads between phones: writes `Store.weddingSyncPayload()` to `rooms/{room}/devices/{deviceId}` and merges every other device's payload back via `Store.applyWeddingSync()`.
+- **Echo guard:** after merging an inbound change, it re-publishes only if its own payload actually changed (JSON compare) — so two phones converge in a couple of hops instead of looping.
+- **State:** `state.sync = { on, room, device }` (added to `defaults()`; auto-migrates existing users via `load()`'s key-fill). `room` is a 24-char random token; `device` is a stable per-phone id.
+- **Triggers:** `Store.setTaskStatus/addTask/setTask` call `syncWedding()` → `Sync.pushSoon()` (600 ms debounce). Deletes intentionally don't push (the merge never deletes).
+- **Join flow:** Settings → "Turn on live sync" mints a room + shows a `?room=` link (`Act.startSync`/`sendJoinLink`). Partner opens link → `App.maybeJoinSync()` offers to join → `Act.joinSync` → `Sync.join()`. Returning users auto-reconnect on boot (`App.boot` calls `Sync.start()`).
+- **Enhancement to `applyWeddingSync`:** an already-known *custom* task now gets its status/fields merged (done-wins) instead of being skipped — so custom-task check-offs sync, not just the 38 seed tasks. (This also improves the share-link.)
+- **Status UI:** `Screens.syncCard()` in Settings shows a pill (live/connecting/error). `App.onSyncChange()` re-renders Settings on status change. CSS: `.syncpill` in `styles.css`.
+- **Verified live** against the real DB (writes/reads/merge/security rules all pass). Note: a headless preview browser may *suspend* the Firebase WebSocket between idle moments (writes buffer locally) — that's an environment quirk, not a bug; a foregrounded phone stays connected. Use REST (`https://diaz-ferara-household-default-rtdb.firebaseio.com/<path>.json`) for reliable out-of-band reads/cleanup.

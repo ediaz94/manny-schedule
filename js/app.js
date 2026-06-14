@@ -98,6 +98,8 @@ window.App = (function () {
     render();
     maybePhaseModal();
     maybeSync();
+    maybeJoinSync();
+    if (window.Sync && Sync.enabled()) Sync.start(); // returning user: reconnect live sync
   }
   // Did someone open a shared-wedding-list link? Offer to merge it in.
   function maybeSync() {
@@ -112,8 +114,24 @@ window.App = (function () {
         '<button class="btn btn-ghost big" data-act="closeSheet">Not now</button>');
     } catch (e) {}
   }
+  // Did someone open a live-sync join link (?room=...)? Offer to join.
+  function maybeJoinSync() {
+    try {
+      const room = new URLSearchParams(location.search).get("room");
+      if (!room) return;
+      history.replaceState(null, "", location.pathname + (location.hash || ""));
+      if (window.Sync && Sync.enabled() && Sync.room() === room) return; // already in this room
+      const partner = (Store.get().profile.partner) || "Someone";
+      UI.sheet(partner + " invited you to sync 💍",
+        '<p class="found">Join the shared wedding list. Your tasks merge together and stay in step from now on — nothing gets deleted.</p>' +
+        '<button class="btn btn-primary big" data-act="joinSync" data-room="' + UI.esc(room) + '">Join the shared list</button>' +
+        '<button class="btn btn-ghost big" data-act="closeSheet">Not now</button>');
+    } catch (e) {}
+  }
+  // Live-sync status changed — refresh Settings if it's the visible screen.
+  function onSyncChange() { if ((location.hash || "").indexOf("#/settings") === 0) render(); }
 
-  return { boot, render, closeSheets, ui, hashPin: hash };
+  return { boot, render, closeSheets, ui, hashPin: hash, onSyncChange };
 })();
 
 /* =====================================================================
@@ -171,6 +189,37 @@ window.Act = (function () {
         App.closeSheets(); App.render();
         UI.toast(n ? "Merged — " + n + " task" + (n === 1 ? "" : "s") + " updated 💍" : "Already up to date");
       } catch (e) { UI.toast("Couldn't read that link"); }
+    },
+
+    /* Live sync (Firebase) — keeps the wedding list in step automatically */
+    startSync() {
+      if (!window.Sync || !Sync.available()) return UI.toast("Live sync isn't set up");
+      Sync.turnOn();
+      App.render();
+      Act.sendJoinLink();
+    },
+    sendJoinLink() {
+      if (!window.Sync) return;
+      const url = Sync.joinLink();
+      const partner = Store.get().profile.partner || "your partner";
+      if (navigator.share) { navigator.share({ title: "Sync our wedding list", text: "Open this to sync our wedding to-do list with me:", url: url }).catch(function () {}); return; }
+      try { if (navigator.clipboard) navigator.clipboard.writeText(url); } catch (e) {}
+      UI.sheet("Send " + UI.esc(partner) + " the join link",
+        '<p class="found">Send this link to ' + UI.esc(partner) + '. When they open it and tap <b>Join</b>, your two lists sync live from then on.</p>' +
+        '<textarea readonly rows="4" class="sharebox" onclick="this.select()">' + UI.esc(url) + '</textarea>' +
+        '<p class="muted" style="font-size:12.5px;margin-top:6px">Copied to your clipboard — paste it into a text or email.</p>' +
+        '<button class="btn btn-primary big" data-act="closeSheet">Done</button>');
+    },
+    joinSync(el) {
+      if (window.Sync && Sync.join(el.dataset.room)) { App.closeSheets(); App.render(); UI.toast("Live sync on 💍"); }
+      else UI.toast("Couldn't read that link");
+    },
+    stopSync() {
+      UI.confirmDialog("Turn off live sync? Your tasks stay on this phone — they just stop syncing with " + (Store.get().profile.partner || "your partner") + ". You can turn it back on anytime.", function () {
+        if (window.Sync) Sync.turnOff();
+        App.closeSheets(); App.render();
+        UI.toast("Live sync off");
+      }, "Turn off");
     },
 
     /* Today / Planner */

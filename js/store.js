@@ -97,7 +97,8 @@ window.Store = (function () {
       people: [],
       foodDb: DATA.foods.map((f, i) => Object.assign({ id: i }, f)),
       foodDbVersion: DATA.foodSeedVersion,
-      onboarded: false
+      onboarded: false,
+      sync: { on: false, room: "", device: "" }
     };
   }
 
@@ -372,9 +373,11 @@ window.Store = (function () {
     return mins / 60;
   }
 
-  function setTaskStatus(id, status) { const t = state.weddingTasks.find((x) => x.id === id); if (t) { t.status = status; save(); } }
-  function addTask(t) { const id = Math.max(0, ...state.weddingTasks.map((x) => x.id)) + 1; state.weddingTasks.push(Object.assign({ id, status: "open" }, t)); save(); return id; }
-  function setTask(upd) { const t = state.weddingTasks.find((x) => x.id === upd.id); if (t) { Object.assign(t, upd); save(); } }
+  // push wedding changes to the live-sync room (no-op unless live sync is on)
+  function syncWedding() { if (window.Sync && Sync.enabled()) Sync.pushSoon(); }
+  function setTaskStatus(id, status) { const t = state.weddingTasks.find((x) => x.id === id); if (t) { t.status = status; save(); syncWedding(); } }
+  function addTask(t) { const id = Math.max(0, ...state.weddingTasks.map((x) => x.id)) + 1; state.weddingTasks.push(Object.assign({ id, status: "open" }, t)); save(); syncWedding(); return id; }
+  function setTask(upd) { const t = state.weddingTasks.find((x) => x.id === upd.id); if (t) { Object.assign(t, upd); save(); syncWedding(); } }
   function deleteTask(id) { state.weddingTasks = state.weddingTasks.filter((x) => x.id !== id); save(); }
   // Wedding-task sharing: a compact payload of only what's changed from the
   // shared seed list + any custom tasks added. Both phones seed the same 37
@@ -407,7 +410,15 @@ window.Store = (function () {
     });
     (payload.add || []).forEach((e) => {
       if (!e.t) return;
-      if (state.weddingTasks.some((x) => (x.title || "").toLowerCase() === e.t.toLowerCase())) return;
+      const existing = state.weddingTasks.find((x) => (x.title || "").toLowerCase() === e.t.toLowerCase());
+      if (existing) { // already have this custom task — merge its status/fields (done wins, never undo)
+        const s = (existing.status === "done" || e.s === "done") ? "done" : (e.s || existing.status);
+        if (s !== existing.status) { existing.status = s; n++; }
+        if (e.u && existing.due !== e.u) { existing.due = e.u; n++; }
+        if (e.w && existing.who !== e.w) { existing.who = e.w; n++; }
+        if (e.p && existing.priority !== e.p) { existing.priority = e.p; n++; }
+        return;
+      }
       const id = Math.max(DATA.weddingTasks.length - 1, ...state.weddingTasks.map((x) => x.id)) + 1;
       state.weddingTasks.push({ id: id, title: e.t, desc: e.d || "", month: e.m || "june", who: e.w || "both", priority: e.p || "medium", status: e.s || "open", due: e.u || null });
       n++;
