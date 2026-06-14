@@ -17,7 +17,9 @@ window.DATA = (function () {
     hydrationTargetOz: 120,
     fintechWeeklyHours: 5.5,
     calorieTarget: 2100,
-    proteinTarget: 180
+    proteinTarget: 180,
+    carbTarget: 170,
+    fatTarget: 65
   };
 
   /* ---- Phases --------------------------------------------------------- */
@@ -261,18 +263,18 @@ window.DATA = (function () {
   const meals = [
     { type: "breakfast", time: "05:30", label: "Breakfast",
       desc: "Greek yogurt bowl: 1 cup plain Greek yogurt, ½ cup berries, 2 tbsp almonds, drizzle of honey. Coffee.",
-      alt: "2 eggs + 1 slice sourdough + ½ avocado", cal: 350, protein: 30 },
+      alt: "2 eggs + 1 slice sourdough + ½ avocado", cal: 350, protein: 30, c: 32, f: 12, col: 0 },
     { type: "mid-morning", time: "09:30", label: "Mid-Morning Snack",
-      desc: "Apple + 1 tbsp peanut butter", alt: "Hard-boiled egg + handful of almonds", cal: 200, protein: 8 },
+      desc: "Apple + 1 tbsp peanut butter", alt: "Hard-boiled egg + handful of almonds", cal: 200, protein: 8, c: 22, f: 9, col: 1 },
     { type: "lunch", time: "12:00", label: "Lunch (prepped)",
       desc: "5–6 oz grilled chicken or turkey, 1 cup quinoa or brown rice, 2 cups roasted veg, olive oil + lemon.",
-      alt: null, cal: 550, protein: 45 },
+      alt: null, cal: 550, protein: 45, c: 48, f: 18, col: 0 },
     { type: "pre-workout", time: "17:00", label: "Pre-Workout",
-      desc: "Banana + scoop of whey protein in water", alt: "Rice cake with peanut butter", cal: 200, protein: 25 },
+      desc: "Banana + scoop of whey protein in water", alt: "Rice cake with peanut butter", cal: 200, protein: 25, c: 20, f: 2, col: 1 },
     { type: "dinner", time: "19:15", label: "Dinner",
-      desc: "Protein (8 oz) + 2 cups vegetables + smart carb. See dinner rotation.", alt: null, cal: 650, protein: 50 },
+      desc: "Protein (8 oz) + 2 cups vegetables + smart carb. See dinner rotation.", alt: null, cal: 650, protein: 50, c: 50, f: 22, col: 1 },
     { type: "optional-snack", time: "20:30", label: "Optional Snack",
-      desc: "Cottage cheese (¾ cup) with berries", alt: "Casein protein shake", cal: 150, protein: 20 }
+      desc: "Cottage cheese (¾ cup) with berries", alt: "Casein protein shake", cal: 150, protein: 20, c: 12, f: 2, col: 0 }
   ];
 
   /* ---- Dinner rotation WITH FULL RECIPES ------------------------------ */
@@ -625,7 +627,7 @@ window.DATA = (function () {
      n=name, u=unit shown, cal+p(rotein) per ONE unit, k=keywords (lowercase;
      matched by substring so plurals like "eggs" hit "egg"). Edit/extend freely. */
   // bump when js/foods.js changes, so saved data re-merges new foods
-  const foodSeedVersion = 2;
+  const foodSeedVersion = 3;
   // 1,300+ foods come from js/foods.js (window.FOODS); inline list below is a fallback
   const foods = (window.FOODS && window.FOODS.length) ? window.FOODS : [
     // eggs & breakfast

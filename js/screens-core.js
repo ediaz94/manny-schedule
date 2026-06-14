@@ -6,6 +6,21 @@ window.Screens = window.Screens || {};
   const esc = UI.esc;
 
   function dayFor(dateISO) { return Store.days().find((d) => d.dow === DateU.dow(dateISO)); }
+
+  // Noom-style nutrition coach: reads the day vs goals and nudges / gets you back on track.
+  function coachMsg(nut, p, date) {
+    const calT = p.calorieTarget || 2100, protT = p.proteinTarget || 180;
+    const leftCal = calT - nut.cal, leftP = protT - nut.protein;
+    const today = date === DateU.today();
+    const late = DateU.nowMinutes() >= 19 * 60;
+    if (nut.cal === 0) return { t: "Nothing logged yet — tap a meal's ✓ or add a food to start tracking.", tone: "" };
+    if (leftCal < -150) return { t: "You're " + (-leftCal).toLocaleString() + " cal over today — it happens, no guilt. Get back on track: make the next thing a green one (lean protein + veggies), drink water, and reset tomorrow.", tone: "warn", link: true };
+    if (leftP > 35 && leftCal < 350) return { t: "Tight on calories but " + leftP + "g short on protein — go lean: grilled chicken, shrimp, egg whites, or a protein shake.", tone: "warn", link: true };
+    if (leftP > 30) return { t: leftP + "g of protein to go. A high-protein pick (chicken, Greek yogurt, shrimp, tuna) gets you there.", tone: "", link: true };
+    if (leftCal > 500 && (!today || late)) return { t: "You've got " + leftCal.toLocaleString() + " cal left" + (today ? " and it's getting late" : "") + " — don't undereat; a balanced dinner fuels recovery.", tone: "", link: true };
+    if (leftCal >= -50 && leftP <= 20) return { t: "Dialed in — protein on track and calories in budget. 👏 Keep favoring the 🟢 greens.", tone: "good" };
+    return { t: leftCal.toLocaleString() + " cal left for the day. Keep it green and protein-forward.", tone: "" };
+  }
   function workoutFor(type) { return DATA.workouts.find((w) => w.type === type) || null; }
   function blockEmoji(b) { return (DATA.mealEmojiByTitle[b.title]) || DATA.blockIcon[b.type] || "•"; }
 
@@ -493,27 +508,39 @@ window.Screens = window.Screens || {};
         '</div><span class="cal' + (eaten ? ' counted' : '') + '">' + (eaten ? "✓ " : "") + m.cal + ' cal</span></div>';
     }).join("");
 
-    // Calorie + protein tracker
+    // Calorie + macro tracker (Noom-style)
     const prof = Store.get().profile;
     const calTgt = prof.calorieTarget || 2100, protTgt = prof.proteinTarget || 180;
+    const carbTgt = prof.carbTarget || 170, fatTgt = prof.fatTarget || 65;
     const nut = Store.dayNutrition(date);
     const over = nut.cal > calTgt;
+    const cc = nut.colors || { g: 0, y: 0, r: 0 };
     const foods = Store.day(date).foods || [];
+    const cw = (v, t) => Math.min(100, t ? v / t * 100 : 0).toFixed(0);
+    const macroBar = (label, val, tgt, cls) =>
+      '<div class="mrow"><span>' + label + '</span><b class="tabnum">' + val + ' <span class="muted">/ ' + tgt + ' g</span></b></div>' +
+      '<div class="calbar sm"><i class="' + cls + (val > tgt * 1.1 ? " over" : "") + '" style="width:' + cw(val, tgt) + '%"></i></div>';
+    const cz = coachMsg(nut, prof, date);
     const extras = foods.map((f) =>
-      '<div class="xfood"><span class="xn">' + esc(f.name) + '</span>' +
-        '<span class="xc tabnum">' + (f.cal || 0) + ' cal' + (f.protein ? ' · ' + f.protein + 'g' : '') + '</span>' +
+      '<div class="xfood">' + (f.col != null ? '<span class="fdot ' + ["g", "y", "r"][f.col] + '"></span>' : '') +
+        '<span class="xn">' + esc(f.name) + '</span>' +
+        '<span class="xc tabnum">' + (f.cal || 0) + ' cal</span>' +
         '<button class="oosbtn" data-act="delFood" data-id="' + f.id + '">✕</button></div>').join("");
     const calCard =
       '<div class="card2 calcard">' +
-        '<div class="card2-h">Calories today <span class="muted">goal ' + calTgt.toLocaleString() + '</span></div>' +
+        '<div class="card2-h">Today <span class="muted">goal ' + calTgt.toLocaleString() + ' cal</span></div>' +
         '<div class="calbig tabnum"><b>' + nut.cal.toLocaleString() + '</b> <span class="muted">/ ' + calTgt.toLocaleString() + ' cal</span></div>' +
-        '<div class="calbar"><i class="' + (over ? "over" : "") + '" style="width:' + Math.min(100, nut.cal / calTgt * 100).toFixed(0) + '%"></i></div>' +
+        '<div class="calbar"><i class="' + (over ? "over" : "") + '" style="width:' + cw(nut.cal, calTgt) + '%"></i></div>' +
         '<div class="calmeta">' +
           (over ? '<span class="overtxt">' + (nut.cal - calTgt).toLocaleString() + ' over goal</span>' : '<span>' + (calTgt - nut.cal).toLocaleString() + ' cal left</span>') +
-          '<span class="muted">checked meals + extras</span></div>' +
-        '<div class="protrow"><span>💪 Protein</span><b class="tabnum">' + nut.protein + ' / ' + protTgt + ' g</b></div>' +
-        '<div class="calbar sm"><i class="prot" style="width:' + Math.min(100, nut.protein / protTgt * 100).toFixed(0) + '%"></i></div>' +
-        (extras ? '<div class="xhead">Extra foods</div>' + extras : "") +
+          '<span class="colortally">🟢 ' + cc.g + ' &nbsp;🟡 ' + cc.y + ' &nbsp;🔴 ' + cc.r + '</span></div>' +
+        '<div class="macros">' +
+          macroBar("💪 Protein", nut.protein, protTgt, "prot") +
+          macroBar("🍞 Carbs", nut.carbs, carbTgt, "carb") +
+          macroBar("🥑 Fat", nut.fat, fatTgt, "fatm") +
+        '</div>' +
+        '<div class="coach ' + cz.tone + '">🧭 ' + esc(cz.t) + (cz.link ? ' <a href="#/meals/plan">See meal ideas ›</a>' : "") + '</div>' +
+        (extras ? '<div class="xhead">Logged today</div>' + extras : "") +
         '<button class="btn btn-ghost" data-act="addFood" style="margin-top:12px">➕ Add food / snack</button>' +
       '</div>';
 
@@ -541,6 +568,14 @@ window.Screens = window.Screens || {};
       '<p class="muted intro">Every dinner you can choose from — ' + DATA.dinners.length + ' in all. Tap one for the full recipe + links to videos and more recipes online. Pick your week over on <a href="#/meals/plan">Plan this week</a>.</p>' + cards + '</div></div>';
   };
 
+  function dinnerProteinNum(dn) { const m = (dn.protein || "").match(/\d+/); return m ? +m[0] : 0; }
+  function dinnerTags(dn) {
+    const p = dinnerProteinNum(dn), nm = dn.name.toLowerCase();
+    const tags = [];
+    if (p >= 40) tags.push('<span class="mtag hp">💪 High protein</span>');
+    if (/salad|veggie|quinoa|falafel|bowl/.test(nm) || p < 35) tags.push('<span class="mtag lt">🥗 Lighter</span>');
+    return tags.join("");
+  }
   S.mealPlan = function () {
     const sel = Store.weekMeals();
     const selSet = {}; sel.forEach((i) => { selSet[i] = (selSet[i] || 0) + 1; });
@@ -551,14 +586,26 @@ window.Screens = window.Screens || {};
         '<div class="planmeal-b" data-act="recipe" data-i="' + i + '" role="button">' +
           '<div class="t">' + esc(dn.name) + '</div>' +
           '<div class="d">' + esc(dn.blurb) + '</div>' +
-          '<div class="dinner-m"><span>⏱ ' + esc(dn.time) + '</span><span>💪 ' + esc(dn.protein) + '</span><span class="muted">tap for recipe ›</span></div>' +
+          '<div class="dinner-m">' + dinnerTags(dn) + '<span>⏱ ' + esc(dn.time) + '</span><span class="muted">tap for recipe ›</span></div>' +
         '</div></div>';
     }).join("");
     const n = sel.length;
+    // balance coaching for the week's picks
+    let balance = "";
+    if (n) {
+      const hp = sel.filter((i) => DATA.dinners[i] && dinnerProteinNum(DATA.dinners[i]) >= 40).length;
+      const light = sel.filter((i) => { const d = DATA.dinners[i]; return d && (/salad|veggie|quinoa|falafel|bowl/.test(d.name.toLowerCase()) || dinnerProteinNum(d) < 35); }).length;
+      let tip;
+      if (hp === 0) tip = "These are tasty but light on protein — add a 💪 high-protein night to hit your goals.";
+      else if (light === 0) tip = "Solid protein! Toss in a 🥗 lighter/veg-forward night for balance.";
+      else tip = "Nice balance — " + hp + " high-protein and " + light + " lighter pick" + (light === 1 ? "" : "s") + ". 👏";
+      balance = '<div class="coach">🧭 ' + tip + '</div>';
+    }
     return '<div class="screen">' + subbar("Plan This Week", "#/meals") + '<div class="wrap">' +
       '<p class="muted intro">Tap the meals you want this week. When you\'re done, build a grocery list that matches exactly what you picked — then re-share the wedding planning... er, dinner duty, with ' + esc(Store.get().profile.partner || "your partner") + '. 🙂</p>' +
       '<div class="planbar"><b id="planCount">' + n + '</b> meal' + (n === 1 ? "" : "s") + ' picked' +
         '<button class="btn btn-primary" data-act="buildGrocery">🛒 Build grocery list</button></div>' +
+      balance +
       cards +
       '<div style="height:20px"></div>' +
       '</div></div>';

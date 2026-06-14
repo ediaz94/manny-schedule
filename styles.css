@@ -135,6 +135,20 @@ a.nudge{text-decoration:none}
 .xfood .xn{flex:1; font-size:14px}
 .xfood .xc{font-size:12.5px; color:var(--ink-2); font-weight:700}
 .cal.counted{color:var(--success); font-weight:800}
+.macros{margin:14px 0 4px}
+.mrow{display:flex; justify-content:space-between; font-size:13.5px; font-weight:700; margin-top:9px}
+.calbar i.carb{background:#C9A24B} .calbar i.fatm{background:#D98E5A}
+.colortally{font-size:13px; font-weight:700}
+.coach{background:#EFF5EF; border:1px solid #CFE3CF; border-radius:12px; padding:11px 13px; margin:14px 0 4px; font-size:13.5px; line-height:1.5; color:var(--sage)}
+.coach.warn{background:#FBF7EE; border-color:#ECE0C6; color:#7a5f23}
+.coach.good{background:#EFF5EF; border-color:#CFE3CF; color:var(--success)}
+.coach a{font-weight:800; white-space:nowrap}
+.fdot{width:11px; height:11px; border-radius:50%; flex:none; display:inline-block}
+.fdot.g{background:#5B8C5A} .fdot.y{background:#E6B53C} .fdot.r{background:#D9694F}
+.fdsug-i{align-items:center}
+.macro3{display:flex; gap:8px} .macro3 .field{flex:1; margin:12px 0}
+.mtag{font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:99px; margin-right:5px}
+.mtag.hp{background:#EFEAF3; color:var(--purple)} .mtag.lt{background:#EAF0EC; color:var(--sage)}
 .fdresults:not(:empty){margin:10px 0 4px}
 .pfrow{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:9px 12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; margin:6px 0; font-size:14px}
 .pftot{display:flex; justify-content:space-between; padding:11px 12px; background:#EFF5EF; border:1px solid #CFE3CF; border-radius:10px; margin:8px 0; font-weight:800; font-size:15px; color:var(--sage)}

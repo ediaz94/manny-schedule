@@ -1,6 +1,6 @@
 ﻿/* Service worker â€” cache the app shell so it works offline.
    Bump CACHE when you change files to force an update. */
-const CACHE = "manny-plan-v22";
+const CACHE = "manny-plan-v23";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./js/foods.js", "./js/data.js", "./js/store.js", "./js/ui.js",

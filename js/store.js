@@ -164,12 +164,14 @@ window.Store = (function () {
   function migrateFoodDb() {
     if (!state.foodDb) state.foodDb = DATA.foods.map((f, i) => Object.assign({ id: i }, f));
     if (state.foodDbVersion === DATA.foodSeedVersion) return;
-    const have = {};
-    state.foodDb.forEach((f) => { have[(f.n || "").toLowerCase()] = true; });
+    const byName = {};
+    state.foodDb.forEach((f) => { byName[(f.n || "").toLowerCase()] = f; });
     let nextId = Math.max(-1, ...state.foodDb.map((f) => f.id)) + 1;
     DATA.foods.forEach((f) => {
       const k = (f.n || "").toLowerCase();
-      if (!have[k]) { state.foodDb.push(Object.assign({ id: nextId++ }, f)); have[k] = true; }
+      const existing = byName[k];
+      if (!existing) { state.foodDb.push(Object.assign({ id: nextId++ }, f)); byName[k] = f; }
+      else { ["c", "f", "col"].forEach((field) => { if (existing[field] == null && f[field] != null) existing[field] = f[field]; }); } // backfill new macro/color fields onto edited foods
     });
     state.foodDbVersion = DATA.foodSeedVersion;
     save();
@@ -344,10 +346,12 @@ window.Store = (function () {
   function addFood(dateISO, f) { dayFoods(dateISO).push(Object.assign({ id: Date.now().toString(36) }, f)); save(); }
   function delFood(dateISO, id) { const dl = day(dateISO); dl.foods = (dl.foods || []).filter((x) => x.id !== id); save(); }
   function dayNutrition(dateISO) {
-    const ml = mealLog(dateISO); let cal = 0, protein = 0;
-    DATA.meals.forEach((m) => { if (ml[m.type] === "eaten") { cal += m.cal; protein += m.protein; } });
-    (day(dateISO).foods || []).forEach((f) => { cal += +f.cal || 0; protein += +f.protein || 0; });
-    return { cal, protein };
+    const ml = mealLog(dateISO); let cal = 0, protein = 0, carbs = 0, fat = 0;
+    const colors = { g: 0, y: 0, r: 0 };
+    const tally = (col) => { if (col === 0) colors.g++; else if (col === 2) colors.r++; else colors.y++; };
+    DATA.meals.forEach((m) => { if (ml[m.type] === "eaten") { cal += m.cal; protein += m.protein; carbs += m.c || 0; fat += m.f || 0; tally(m.col); } });
+    (day(dateISO).foods || []).forEach((f) => { cal += +f.cal || 0; protein += +f.protein || 0; carbs += +f.carbs || 0; fat += +f.fat || 0; tally(f.col); });
+    return { cal: cal, protein: protein, carbs: carbs, fat: fat, colors: colors };
   }
 
   /* Editable food library (powers the plain-English calorie lookup) */

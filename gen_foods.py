@@ -419,8 +419,60 @@ for t in [("Olive oil", "tbsp", 120, 0), ("Mayo", "tbsp", 90, 0),
           ("Nutella", "tbsp", 100, 1)]:
     add(*t)
 
+# ---- Classify: macros (carbs c, fat f) + Noom-style color (col 0/1/2) ------
+RED_KW = ["fried", "fries", "donut", "cake", "pie", "cookie", "candy", "milkshake", "shake", "soda",
+          "burger", "pizza", "chips", "ice cream", "churro", "bacon", "sausage", "alfredo",
+          "mac and cheese", "nachos", "wings", "ribs", "pork belly", "ribeye", "gravy", "mayo",
+          "butter", "olive oil", "funnel", "beignet", "cinnamon roll", "queso", "crema", "tots",
+          "onion rings", "corn dog", "calzone", "stromboli", "chimichanga", "frappuccino",
+          "margarita", "pina colada", "brownie", "danish", "croissant", "poppers", "rangoon",
+          "mozzarella sticks", "tres leches", "flan", "concha", "pan dulce", "ranch", "pesto"]
+GREEN_KW = ["salad", "broccoli", "spinach", "asparagus", "green beans", "brussels", "kale", "greens",
+            "cauliflower", "cucumber", "tomato", "bell pepper", "zucchini", "mushroom", "cabbage",
+            "okra", "squash", "berries", "apple", "orange", "grapes", "watermelon", "cantaloupe",
+            "honeydew", "peach", "pear", "kiwi", "egg white", "tilapia", "cod", "tuna", "broth",
+            "pico de gallo", "salsa", "greek yogurt", "cottage cheese", "edamame", "black beans",
+            "ceviche", "shrimp", "spinach"]
+GREEN_PREFIX = ("grilled ", "baked ", "blackened ", "steamed ", "poached ", "air-fried ")
+RED_PREFIX = ("fried ", "breaded ", "crispy ", "smothered ")
+CARB_KW = ["rice", "pasta", "noodle", "bread", "toast", "bagel", "potato", "fries", "fruit", "banana",
+           "apple", "berries", "orange", "grape", "soda", "juice", "sugar", "honey", "oats", "oatmeal",
+           "cereal", "tortilla", "donut", "cookie", "cake", "pie", "candy", "quinoa", "bean", "corn",
+           "syrup", "jam", "pancake", "waffle", "lemonade", "horchata", "muffin", "granola", "crackers",
+           "pretzel", "churro", "tres leches", "cinnamon", "rangoon", "fruit", "couscous", "farro",
+           "sweet potato", "yam", "tamale", "tortilla", "burrito", "taco"]
+FAT_KW = ["oil", "butter", "mayo", "nuts", "almond", "peanut", "cashew", "walnut", "pistachio",
+          "cheese", "bacon", "sausage", "avocado", "cream", "ribeye", "pork belly", "salmon",
+          "nutella", "ranch", "alfredo", "pesto", "dressing", "guacamole", "tahini"]
+
+def has(name, kws):
+    return any(k in name for k in kws)
+
+for fdict in FOODS:
+    nm = fdict["n"].lower()
+    cal, p = fdict["cal"], fdict["p"]
+    # color
+    if nm.startswith(RED_PREFIX) or has(nm, RED_KW):
+        col = 2
+    elif nm.startswith(GREEN_PREFIX) or has(nm, GREEN_KW):
+        col = 0
+    else:
+        col = 1
+    # macros: split non-protein calories into carbs/fat by keyword lean
+    nonprot = max(0, cal - p * 4)
+    if has(nm, CARB_KW):
+        carbfrac = 0.7
+    elif has(nm, FAT_KW):
+        carbfrac = 0.25
+    else:
+        carbfrac = 0.5
+    fdict["c"] = int(round(nonprot * carbfrac / 4.0))
+    fdict["f"] = int(round(nonprot * (1 - carbfrac) / 9.0))
+    fdict["col"] = col
+
 out = "window.FOODS = [\n" + ",\n".join(
     "  " + json.dumps(f, ensure_ascii=False, separators=(",", ":")) for f in FOODS) + "\n];\n"
 with open(os.path.join(os.path.dirname(__file__), "js", "foods.js"), "w", encoding="utf-8") as fh:
     fh.write(out)
-print("Wrote", len(FOODS), "foods")
+greens = sum(1 for f in FOODS if f["col"] == 0); reds = sum(1 for f in FOODS if f["col"] == 2)
+print("Wrote", len(FOODS), "foods —", greens, "green,", reds, "red,", len(FOODS) - greens - reds, "yellow")

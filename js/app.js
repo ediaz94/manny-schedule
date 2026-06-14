@@ -426,7 +426,9 @@ window.Act = (function () {
           '<label class="field"><span>Food</span><input id="fdname" placeholder="e.g. Protein bar"></label>' +
           '<label class="field"><span>Calories</span><input id="fdcal" class="big-in tabnum" type="number" inputmode="numeric"></label>' +
           '<div class="presets">' + [100, 150, 200, 300, 500].map((c) => '<button type="button" class="chipbtn" data-act="foodPreset" data-c="' + c + '">' + c + '</button>').join("") + '</div>' +
-          '<label class="field"><span>Protein (g, optional)</span><input id="fdprot" type="number" inputmode="numeric"></label>' +
+          '<div class="macro3"><label class="field"><span>Protein (g)</span><input id="fdprot" type="number" inputmode="numeric"></label>' +
+          '<label class="field"><span>Carbs (g)</span><input id="fdcarb" type="number" inputmode="numeric"></label>' +
+          '<label class="field"><span>Fat (g)</span><input id="fdfat" type="number" inputmode="numeric"></label></div>' +
           '<button class="btn btn-primary big" data-act="saveFood">Add it</button>' +
         '</details>');
     },
@@ -443,9 +445,12 @@ window.Act = (function () {
       }
       scored.sort((a, b) => a.s - b.s || a.f.n.length - b.f.n.length || (a.f.n < b.f.n ? -1 : 1));
       if (!scored.length) { sug.innerHTML = '<div class="fdno">No match — add it under “Enter the calories myself” below.</div>'; return; }
+      const dot = ["g", "y", "r"];
       sug.innerHTML = scored.slice(0, 12).map((x) =>
-        '<button type="button" class="fdsug-i" data-act="pickFood" data-id="' + x.f.id + '"><span class="si-n">' + UI.esc(x.f.n) +
-        ' <span class="muted">(' + UI.esc(x.f.u) + ')</span></span><span class="si-c tabnum">' + x.f.cal + ' cal</span></button>').join("") +
+        '<button type="button" class="fdsug-i" data-act="pickFood" data-id="' + x.f.id + '">' +
+        '<span class="fdot ' + dot[x.f.col || 0] + '"></span>' +
+        '<span class="si-n">' + UI.esc(x.f.n) + ' <span class="muted">(' + UI.esc(x.f.u) + ')</span></span>' +
+        '<span class="si-c tabnum">' + x.f.cal + ' cal</span></button>').join("") +
         (scored.length > 12 ? '<div class="fdno">' + scored.length + ' matches — keep typing to narrow it down.</div>' : "");
     },
     pickFood(el) {
@@ -485,7 +490,7 @@ window.Act = (function () {
     addCart() {
       const cart = App.ui._cart || [], db = Store.foodDb(), qf = (q) => q === 0.5 ? "½" : String(q);
       let n = 0;
-      cart.forEach((c) => { const f = db.find((x) => x.id === c.id); if (!f) return; Store.addFood(T(), { name: qf(c.qty) + "× " + f.n, cal: Math.round(f.cal * c.qty), protein: Math.round((f.p || 0) * c.qty) }); n++; });
+      cart.forEach((c) => { const f = db.find((x) => x.id === c.id); if (!f) return; Store.addFood(T(), { name: qf(c.qty) + "× " + f.n, cal: Math.round(f.cal * c.qty), protein: Math.round((f.p || 0) * c.qty), carbs: Math.round((f.c || 0) * c.qty), fat: Math.round((f.f || 0) * c.qty), col: f.col }); n++; });
       App.ui._cart = null; App.closeSheets(); App.render(); UI.toast(n ? "Added " + n + " item" + (n === 1 ? "" : "s") + " 🍽️" : "Pick a food first");
     },
     foodManual() { const w = document.getElementById("fdmanwrap"); if (!w) return; w.style.display = w.style.display === "none" ? "" : "none"; if (w.style.display === "") { const n = document.getElementById("fdname"); if (n) n.focus(); } },
@@ -507,7 +512,7 @@ window.Act = (function () {
       const items = App.ui._pf || [];
       const qf = (q) => q === 0.5 ? "½" : String(q);
       let n = 0;
-      items.forEach((it) => { Store.addFood(T(), { name: qf(it.qty) + "× " + it.food.n, cal: Math.round(it.food.cal * it.qty), protein: Math.round((it.food.p || 0) * it.qty) }); n++; });
+      items.forEach((it) => { Store.addFood(T(), { name: qf(it.qty) + "× " + it.food.n, cal: Math.round(it.food.cal * it.qty), protein: Math.round((it.food.p || 0) * it.qty), carbs: Math.round((it.food.c || 0) * it.qty), fat: Math.round((it.food.f || 0) * it.qty), col: it.food.col }); n++; });
       App.ui._pf = null; App.closeSheets(); App.render(); UI.toast(n ? "Added " + n + " item" + (n === 1 ? "" : "s") + " 🍽️" : "Nothing matched");
     },
     parseFoods(text) {
@@ -536,7 +541,7 @@ window.Act = (function () {
       const name = val("fdname"), cal = num("fdcal");
       if (!name) return UI.toast("Name it");
       if (cal == null) return UI.toast("Enter calories");
-      Store.addFood(T(), { name, cal, protein: num("fdprot") || 0 });
+      Store.addFood(T(), { name, cal, protein: num("fdprot") || 0, carbs: num("fdcarb") || 0, fat: num("fdfat") || 0, col: 1 });
       App.closeSheets(); App.render(); UI.toast("Added " + cal + " cal");
     },
     delFood(el) { Store.delFood(T(), el.dataset.id); App.render(); },
@@ -800,7 +805,9 @@ window.Act = (function () {
         '<label class="field"><span>Starting weight</span><input id="psw" type="number" value="' + p.startWeight + '"></label>' +
         '<label class="field"><span>Target weight</span><input id="ptw" type="number" value="' + p.targetWeight + '"></label>' +
         '<label class="field"><span>Daily calorie goal</span><input id="pcal" type="number" inputmode="numeric" value="' + (p.calorieTarget || 2100) + '"></label>' +
-        '<label class="field"><span>Daily protein goal (g)</span><input id="pprot" type="number" inputmode="numeric" value="' + (p.proteinTarget || 180) + '"></label>' +
+        '<div class="macro3"><label class="field"><span>Protein goal (g)</span><input id="pprot" type="number" inputmode="numeric" value="' + (p.proteinTarget || 180) + '"></label>' +
+        '<label class="field"><span>Carbs goal (g)</span><input id="pcarb" type="number" inputmode="numeric" value="' + (p.carbTarget || 170) + '"></label>' +
+        '<label class="field"><span>Fat goal (g)</span><input id="pfat" type="number" inputmode="numeric" value="' + (p.fatTarget || 65) + '"></label></div>' +
         '<label class="field"><span>Wedding date</span><input id="pwd" type="date" value="' + p.weddingDate + '"></label>' +
         '<button class="btn btn-primary big" data-act="saveProfile">Save</button>');
     },
@@ -809,6 +816,7 @@ window.Act = (function () {
       p.name = val("pname") || p.name; p.heightIn = num("pht") || p.heightIn;
       p.startWeight = num("psw") || p.startWeight; p.targetWeight = num("ptw") || p.targetWeight;
       p.calorieTarget = num("pcal") || p.calorieTarget || 2100; p.proteinTarget = num("pprot") || p.proteinTarget || 180;
+      p.carbTarget = num("pcarb") || p.carbTarget || 170; p.fatTarget = num("pfat") || p.fatTarget || 65;
       p.weddingDate = val("pwd") || p.weddingDate; Store.save(); App.closeSheets(); App.render(); UI.toast("Profile updated");
     },
     setPin() {
