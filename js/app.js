@@ -8,7 +8,7 @@ window.App = (function () {
     "": S.today, "today": S.today,
     "workout": S.workout, "workout/history": S.workoutHistory, "workout/progress": S.workoutProgress,
     "weight": S.weight,
-    "meals": S.meals, "meals/rotation": S.dinnerRotation, "meals/grocery": S.grocery, "meals/prep": S.mealPrep,
+    "meals": S.meals, "meals/rotation": S.dinnerRotation, "meals/plan": S.mealPlan, "meals/grocery": S.grocery, "meals/prep": S.mealPrep,
     "fintech": S.fintech,
     "wedding": S.wedding, "wedding/vendors": S.vendors, "wedding/memoriam": S.memoriam, "wedding/calendar": S.weddingCal,
     "faith": S.faith, "review": S.review, "stats": S.stats, "more": S.more, "settings": S.settings, "settings/foods": S.foodList
@@ -402,6 +402,14 @@ window.Act = (function () {
     mass(el) { Store.setMass(el.dataset.date, !Store.massFor(el.dataset.date)); App.render(); UI.toast("Logged 🙏"); },
     bible() { Store.bumpBible(); App.render(); UI.toast("Bible episode #" + Store.get().settings.bibleEpisode); },
     mealEat(el) { Store.setMeal(T(), el.dataset.type, "eaten"); App.render(); },
+    toggleWeekMeal(el) { Store.toggleWeekMeal(+el.dataset.i); App.render(); },
+    buildGrocery() {
+      const sel = Store.weekMeals();
+      if (!sel.length) return UI.toast("Pick at least one meal first");
+      Store.setWeekMeals(sel);
+      location.hash = "#/meals/grocery";
+      UI.toast("Grocery list built from " + sel.length + " meal" + (sel.length === 1 ? "" : "s") + " 🛒");
+    },
     recipe(el) { UI.sheet(DATA.dinners[+el.dataset.i].name, Screens.recipeHTML(+el.dataset.i)); },
     addFood() {
       App.ui._cart = [];

@@ -518,10 +518,11 @@ window.Screens = window.Screens || {};
       '</div>';
 
     return '<div class="screen">' + subbar("Meals", "#/more") + '<div class="wrap">' +
-      '<div class="tiles">' +
-        '<a class="tile" href="#/meals/rotation">🍽️<span>Dinners &amp; recipes</span></a>' +
+      '<div class="tiles t4">' +
+        '<a class="tile" href="#/meals/plan">🗓️<span>Plan this week</span></a>' +
+        '<a class="tile" href="#/meals/rotation">🍽️<span>All dinners</span></a>' +
         '<a class="tile" href="#/meals/grocery">🛒<span>Grocery list</span></a>' +
-        '<a class="tile" href="#/meals/prep">🍱<span>Meal prep</span></a>' +
+        '<a class="tile" href="#/meals/prep">🍱<span>Prep tasks</span></a>' +
       '</div>' +
       calCard +
       '<div class="sec-h">Today\'s meals <span class="muted" style="font-weight:600;text-transform:none;letter-spacing:0">tap ✓ to count it</span></div>' + meals +
@@ -537,18 +538,45 @@ window.Screens = window.Screens || {};
         '<button class="btn btn-ghost" data-act="recipe" data-i="' + i + '">View recipe</button>' +
       '</div>').join("");
     return '<div class="screen">' + subbar("Dinners & Recipes", "#/meals") + '<div class="wrap">' +
-      '<p class="muted intro">Seven dinners on rotation. Tap any one for the full recipe — ingredients and step-by-step.</p>' + cards + '</div></div>';
+      '<p class="muted intro">Every dinner you can choose from — ' + DATA.dinners.length + ' in all. Tap one for the full recipe + links to videos and more recipes online. Pick your week over on <a href="#/meals/plan">Plan this week</a>.</p>' + cards + '</div></div>';
+  };
+
+  S.mealPlan = function () {
+    const sel = Store.weekMeals();
+    const selSet = {}; sel.forEach((i) => { selSet[i] = (selSet[i] || 0) + 1; });
+    const cards = DATA.dinners.map((dn, i) => {
+      const on = !!selSet[i];
+      return '<div class="planmeal ' + (on ? "on" : "") + '">' +
+        '<button class="check ' + (on ? "on" : "") + '" data-act="toggleWeekMeal" data-i="' + i + '">' + (on ? "✓" : "") + '</button>' +
+        '<div class="planmeal-b" data-act="recipe" data-i="' + i + '" role="button">' +
+          '<div class="t">' + esc(dn.name) + '</div>' +
+          '<div class="d">' + esc(dn.blurb) + '</div>' +
+          '<div class="dinner-m"><span>⏱ ' + esc(dn.time) + '</span><span>💪 ' + esc(dn.protein) + '</span><span class="muted">tap for recipe ›</span></div>' +
+        '</div></div>';
+    }).join("");
+    const n = sel.length;
+    return '<div class="screen">' + subbar("Plan This Week", "#/meals") + '<div class="wrap">' +
+      '<p class="muted intro">Tap the meals you want this week. When you\'re done, build a grocery list that matches exactly what you picked — then re-share the wedding planning... er, dinner duty, with ' + esc(Store.get().profile.partner || "your partner") + '. 🙂</p>' +
+      '<div class="planbar"><b id="planCount">' + n + '</b> meal' + (n === 1 ? "" : "s") + ' picked' +
+        '<button class="btn btn-primary" data-act="buildGrocery">🛒 Build grocery list</button></div>' +
+      cards +
+      '<div style="height:20px"></div>' +
+      '</div></div>';
   };
 
   S.recipeHTML = function (i) {
     const dn = DATA.dinners[i];
     const ing = dn.ingredients.map((x) => '<li>' + esc(x) + '</li>').join("");
     const steps = dn.steps.map((x) => '<li>' + esc(x) + '</li>').join("");
+    const weblink = "https://www.google.com/search?q=" + encodeURIComponent(dn.name + " recipe");
+    const ytlink = "https://www.youtube.com/results?search_query=" + encodeURIComponent("how to make " + dn.name);
     return '<div class="recipe">' +
       '<div class="recipe-m"><span>⏱ ' + esc(dn.time) + '</span><span>💪 ' + esc(dn.protein) + '</span></div>' +
       '<p class="blurb">' + esc(dn.blurb) + '</p>' +
       '<h4>Ingredients</h4><ul class="ing">' + ing + '</ul>' +
-      '<h4>Steps</h4><ol class="steps">' + steps + '</ol></div>';
+      '<h4>Steps</h4><ol class="steps">' + steps + '</ol>' +
+      '<div class="recipe-links"><a class="btn btn-ghost" href="' + weblink + '" target="_blank" rel="noopener">🔎 More recipes online</a>' +
+        '<a class="btn btn-ghost" href="' + ytlink + '" target="_blank" rel="noopener">▶ Watch how-to videos</a></div></div>';
   };
 
   S.grocery = function () {

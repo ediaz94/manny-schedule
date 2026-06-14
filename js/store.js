@@ -81,6 +81,7 @@ window.Store = (function () {
       workoutLogs: [],
       workoutDrafts: {},
       mealLogs: {},
+      weekMeals: defaultWeekMeals(),
       dinnerPlan: seedDinnerPlan(),
       grocery: seedGrocery(),
       fintechSessions: [],
@@ -173,31 +174,39 @@ window.Store = (function () {
     state.foodDbVersion = DATA.foodSeedVersion;
     save();
   }
+  // default weekly meals = the original 7-dinner rotation (indices 0–6)
+  function defaultWeekMeals() { return [0, 1, 2, 3, 4, 5, 6]; }
+  // first dinner per weekday wins; extras (dow null) are not auto-scheduled
   function seedDinnerPlan() {
     const plan = {};
-    DATA.dinners.forEach((dn, i) => { plan[dn.dow] = i; });
+    DATA.dinners.forEach((dn, i) => { if (dn.dow != null && plan[dn.dow] == null) plan[dn.dow] = i; });
     return plan;
   }
-  function seedGrocery() {
+  // distribute the chosen meals across the week's dinner days (Mon-first)
+  function distributePlan(indices) {
+    if (!indices || !indices.length) return seedDinnerPlan();
+    const plan = {}; const order = [1, 2, 3, 4, 5, 6, 0];
+    order.forEach((dow, k) => { plan[dow] = indices[k % indices.length]; });
+    return plan;
+  }
+  // build a grocery list (staples + this week's selected dinners, grouped by recipe)
+  function buildGroceryFromMeals(indices) {
     const items = [];
     DATA.grocery.aldi.forEach((g) => items.push({ store: "Aldi", name: g.name, cat: g.cat, checked: false, oos: false }));
     DATA.grocery.publix.forEach((g) => items.push({ store: "Publix", name: g.name, cat: g.cat, checked: false, oos: false }));
-    // The week's dinner ingredients, grouped by recipe (a Saturday shop
-    // covers Sat → Fri). Pantry basics you always have are left off.
     const pantry = /salt|pepper|olive oil/i;
-    const DAY3 = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const plan = (state && state.dinnerPlan) ? state.dinnerPlan
-      : (function () { const p = {}; DATA.dinners.forEach((dn, i) => { p[dn.dow] = i; }); return p; })();
-    [6, 0, 1, 2, 3, 4, 5].forEach((dow) => {
-      const di = plan[dow]; if (di == null) return;
+    const seen = {};
+    (indices && indices.length ? indices : defaultWeekMeals()).forEach((di) => {
+      if (seen[di]) return; seen[di] = true;
       const dn = DATA.dinners[di]; if (!dn) return;
       dn.ingredients.forEach((ing) => {
         if (pantry.test(ing)) return;
-        items.push({ store: "dinner", name: ing, cat: DAY3[dow] + " · " + dn.name, checked: false, oos: false });
+        items.push({ store: "dinner", name: ing, cat: dn.name, checked: false, oos: false });
       });
     });
     return { items, week: DateU.monday(DateU.today()) };
   }
+  function seedGrocery() { return buildGroceryFromMeals((state && state.weekMeals) || defaultWeekMeals()); }
 
   function load() {
     try { state = JSON.parse(localStorage.getItem(KEY)); } catch (e) { state = null; }
@@ -318,6 +327,19 @@ window.Store = (function () {
   function mealLog(dateISO) { const d = dateISO || DateU.today(); if (!state.mealLogs[d]) state.mealLogs[d] = {}; return state.mealLogs[d]; }
   function setMeal(dateISO, type, status) { const m = mealLog(dateISO); if (m[type] === status) delete m[type]; else m[type] = status; save(); }
   function setDinner(dow, idx) { state.dinnerPlan[dow] = idx; save(); }
+  function weekMeals() { return state.weekMeals || (state.weekMeals = defaultWeekMeals()); }
+  function toggleWeekMeal(i) {
+    if (!state.weekMeals) state.weekMeals = defaultWeekMeals().slice();
+    const k = state.weekMeals.indexOf(i);
+    if (k >= 0) state.weekMeals.splice(k, 1); else state.weekMeals.push(i);
+    save();
+  }
+  function setWeekMeals(indices) {
+    state.weekMeals = indices.slice();
+    state.dinnerPlan = distributePlan(indices);   // keep "tonight's dinner" working
+    state.grocery = buildGroceryFromMeals(indices); // fresh grocery list for the week
+    save();
+  }
   function dayFoods(dateISO) { const dl = day(dateISO); if (!dl.foods) dl.foods = []; return dl.foods; }
   function addFood(dateISO, f) { dayFoods(dateISO).push(Object.assign({ id: Date.now().toString(36) }, f)); save(); }
   function delFood(dateISO, id) { const dl = day(dateISO); dl.foods = (dl.foods || []).filter((x) => x.id !== id); save(); }
@@ -421,7 +443,7 @@ window.Store = (function () {
     load, save, get, days, tracks, completeSetup, day, toggleBlock, skipBlock, addWater, setPrayer,
     addWeight, latestWeight, uid, saveWorkout, lastWorkout, lastSet,
     getDraft, setDraftSet, clearDraft,
-    mealLog, setMeal, setDinner, dayFoods, addFood, delFood, dayNutrition,
+    mealLog, setMeal, setDinner, weekMeals, setWeekMeals, toggleWeekMeal, dayFoods, addFood, delFood, dayNutrition,
     foodDb, addFoodDb, setFoodDb, delFoodDb, resetFoodDb, toggleGrocery, resetGrocery,
     addFintech, toggleMilestone, fintechHoursWeek,
     setTaskStatus, addTask, setTask, deleteTask, addPerson, weddingSyncPayload, applyWeddingSync, saveVendor, saveMemoriam,
