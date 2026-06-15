@@ -92,7 +92,7 @@ window.Sync = (function () {
   function onErr() { status = "error"; notify(); }
 
   // combined snapshot of everything we sync — used as the echo/convergence guard
-  function snapshot() { return JSON.stringify({ w: Store.weddingSyncPayload(), d: Store.dinnerSyncPayload() }); }
+  function snapshot() { return JSON.stringify({ w: Store.weddingSyncPayload(), d: Store.dinnerSyncPayload(), g: Store.grocerySyncPayload() }); }
 
   function onRemote(snap) {
     const val = (snap && snap.val()) || {};
@@ -103,6 +103,7 @@ window.Sync = (function () {
       const node = val[dev];
       if (node && node.p) Store.applyWeddingSync(node.p); // wedding tasks (accumulate-merge)
       if (node && node.d) Store.applyDinnerSync(node.d);  // dinner plan (last-write-wins)
+      if (node && node.g) Store.applyGrocerySync(node.g); // grocery check-offs (per-item last-write-wins)
     });
     const after = snapshot();
     lastSync = Date.now(); status = "live"; notify();
@@ -115,7 +116,7 @@ window.Sync = (function () {
   async function pushNow() {
     if (!db || !fns || !enabled()) return;
     try {
-      const node = { p: Store.weddingSyncPayload(), d: Store.dinnerSyncPayload(), t: Date.now(), who: (Store.get().profile.name || "") };
+      const node = { p: Store.weddingSyncPayload(), d: Store.dinnerSyncPayload(), g: Store.grocerySyncPayload(), t: Date.now(), who: (Store.get().profile.name || "") };
       await fns.set(fns.ref(db, "rooms/" + cfg().room + "/devices/" + deviceId()), node);
       lastSync = Date.now(); status = "live"; notify();
     } catch (e) { status = "error"; notify(); }

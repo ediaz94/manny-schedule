@@ -378,8 +378,29 @@ window.Store = (function () {
   function delFoodDb(id) { state.foodDb = foodDb().filter((x) => x.id !== id); save(); }
   function resetFoodDb() { state.foodDb = DATA.foods.map((f, i) => Object.assign({ id: i }, f)); save(); }
 
-  function toggleGrocery(i, field) { const it = state.grocery.items[i]; it[field] = !it[field]; save(); }
-  function resetGrocery() { state.grocery = seedGrocery(); save(); }
+  function toggleGrocery(i, field) { const it = state.grocery.items[i]; it[field] = !it[field]; it.at = Date.now(); save(); syncGrocery(); }
+  function resetGrocery() { state.grocery = seedGrocery(); stampGrocery(); save(); syncGrocery(); }
+  // ---- grocery check-off sync (per-item last-write-wins, scoped to the current list version) ----
+  function syncGrocery() { if (window.Sync && Sync.enabled()) Sync.pushSoon(); }
+  function grocerySig() { return JSON.stringify(state.weekMeals || defaultWeekMeals()); } // the list is fully determined by weekMeals
+  function groceryKey(it) { return (it.store || "") + "|" + (it.cat || "") + "|" + (it.name || ""); }
+  function stampGrocery() { const now = Date.now(); ((state.grocery && state.grocery.items) || []).forEach((it) => { it.at = now; }); } // so a reset propagates as unchecks
+  function grocerySyncPayload() {
+    const checks = [];
+    ((state.grocery && state.grocery.items) || []).forEach((it) => { if (it.at) checks.push({ k: groceryKey(it), c: !!it.checked, o: !!it.oos, at: it.at }); });
+    return { rev: grocerySig(), checks: checks };
+  }
+  function applyGrocerySync(g) {
+    if (!g || g.rev !== grocerySig()) return false;     // different list version — don't cross-apply
+    const byKey = {}; ((state.grocery && state.grocery.items) || []).forEach((it) => { byKey[groceryKey(it)] = it; });
+    let changed = false;
+    (g.checks || []).forEach((e) => {
+      const it = byKey[e.k]; if (!it) return;
+      if ((e.at || 0) > (it.at || 0)) { it.checked = !!e.c; it.oos = !!e.o; it.at = e.at; changed = true; } // newest toggle wins
+    });
+    if (changed) save();
+    return changed;
+  }
 
   function addFintech(s) { state.fintechSessions.push(s); save(); }
   function toggleMilestone(id) { const m = state.fintechMilestones.find((x) => x.id === id); if (m) { m.done = !m.done; save(); } }
@@ -475,7 +496,7 @@ window.Store = (function () {
     addWeight, latestWeight, uid, saveWorkout, lastWorkout, lastSet,
     getDraft, setDraftSet, clearDraft,
     mealLog, setMeal, setDinner, weekMeals, setWeekMeals, toggleWeekMeal, dinnerSyncPayload, applyDinnerSync, dayFoods, addFood, delFood, dayNutrition,
-    foodDb, addFoodDb, setFoodDb, delFoodDb, resetFoodDb, toggleGrocery, resetGrocery,
+    foodDb, addFoodDb, setFoodDb, delFoodDb, resetFoodDb, toggleGrocery, resetGrocery, grocerySyncPayload, applyGrocerySync,
     addFintech, toggleMilestone, fintechHoursWeek,
     setTaskStatus, addTask, setTask, deleteTask, addPerson, weddingSyncPayload, applyWeddingSync, saveVendor, saveMemoriam,
     setMass, massFor, bumpBible, addReview, reviewFor, addDateNight, dateNightsInMonth,
