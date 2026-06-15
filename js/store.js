@@ -98,6 +98,7 @@ window.Store = (function () {
       foodDb: DATA.foods.map((f, i) => Object.assign({ id: i }, f)),
       foodDbVersion: DATA.foodSeedVersion,
       onboarded: false,
+      scheduleVersion: SCHEDULE_VERSION,
       sync: { on: false, room: "", device: "", dinnerAt: 0 }
     };
   }
@@ -105,11 +106,13 @@ window.Store = (function () {
   /* ---- Personalized schedule generator (from onboarding answers) ------- */
   const DAYN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const GYM_ROTATION = ["lower-strength", "upper-push", "lower-volume", "upper-pull", "long-run", "active-recovery"];
+  const SCHEDULE_VERSION = 2; // bump to rebuild personalized schedules on next load (2 = evening dinner + gap-free days)
   function buildSchedule(a) {
     const tr = a.tracks || {};
     const fit = !!tr.fitness, faith = !!tr.faith, meals = tr.meals !== false, study = !!tr.study, event = !!tr.event;
     const pw = a.partner ? " with " + a.partner : "";
     const am = (t, n) => DateU.fromMin(Math.max(0, Math.min(1439, DateU.toMin(t) + n)));
+    const mins = (s, e) => DateU.toMin(e) - DateU.toMin(s);
     const gymDays = (a.gymDays || []).slice().sort((x, y) => x - y);
     const wtype = (dow) => { const i = gymDays.indexOf(dow); return (fit && i >= 0) ? GYM_ROTATION[i % GYM_ROTATION.length] : null; };
     const wname = (type) => { const w = DATA.workouts.find((x) => x.type === type); return w ? w.name : "Workout"; };
@@ -120,6 +123,7 @@ window.Store = (function () {
       const sleep = a.sleep || "21:45";
       const B = [];
       const add = (s, e, type, title, desc, extra) => B.push(Object.assign({ s: s, e: e, type: type, title: title, desc: desc || "" }, extra || {}));
+      const fill = (s, e, title, desc) => { if (mins(s, e) >= 30) add(s, e, "flex", title, desc); }; // fill an open stretch so the day never has a dead gap
       if (work) {
         const wake = a.wake || "06:15";
         add(wake, am(wake, 15), "wake", "Wake & Hydrate", "Water before coffee. Ease into the day.");
@@ -129,6 +133,7 @@ window.Store = (function () {
         const wStart = a.workStart || "08:00", wEnd = a.workEnd || "17:00", commute = am(wStart, -20);
         let morningStudy = false;
         if (study && DateU.toMin(commute) - DateU.toMin(t) >= 45) { add(t, am(t, 45), "fintech", a.studyLabel || "Study", "Focused study block."); morningStudy = true; }
+        fill(morningStudy ? am(t, 45) : t, commute, "Get Ready", "Shower, get ready, head out."); // no dead gap before the commute
         add(commute, wStart, "commute", "Commute", "Podcast or music.");
         add(wStart, wEnd, "work", a.workLabel || "Work", "Refuel at lunch; step outside after eating.");
         let ev = wEnd;
@@ -137,9 +142,10 @@ window.Store = (function () {
         add(ev, am(ev, 50), "meal", "Dinner" + pw, "Phones away.", meals ? { meal: "dinner" } : null); ev = am(ev, 50);
         if (study && !morningStudy) { add(ev, am(ev, 40), "fintech", a.studyLabel || "Study", "Evening study block."); ev = am(ev, 40); }
         if (event) { add(ev, am(ev, 30), "wedding-checkin", (a.eventName || "Big day") + " check-in", "Knock out the top items.", {}); ev = am(ev, 30); }
-        add(ev, am(ev, 45), "flex", "Flex / Personal", "Hobby, errands, or rest.");
-        if (faith) add(am(sleep, -15), am(sleep, -5), "prayer", "Evening Prayer", "Reflect and give thanks.", { prayer: "evening" });
-        add(am(sleep, -5), sleep, "rest", "Wind Down", "Lay out tomorrow.");
+        const windDown = am(sleep, -5), eveEnd = faith ? am(sleep, -15) : windDown;
+        fill(ev, eveEnd, "Flex / Personal", "Errands, laundry, a hobby, or rest."); // fill the evening up to wind-down (no dead gap)
+        if (faith) add(am(sleep, -15), windDown, "prayer", "Evening Prayer", "Reflect and give thanks.", { prayer: "evening" });
+        add(windDown, sleep, "rest", "Wind Down", "Lay out tomorrow.");
         add(sleep, am(sleep, 5), "rest", "Lights Out", "Phone away. Cool, dark room.");
       } else {
         const wake = am(a.wake || "07:00", 75);
@@ -150,10 +156,16 @@ window.Store = (function () {
         if (gymType) { add(t, am(t, 75), "workout", wname(gymType), "Weekend session — your big one."); t = am(t, 80); }
         if (meals) { add(t, am(t, 60), "meal-prep", "Meal Prep", "Cook ahead for the week.", { prep: true }); t = am(t, 60); }
         if (event) { add(t, am(t, 90), "wedding-block", (a.eventName || "Big day") + " planning", "Big weekly push" + pw + ".", {}); t = am(t, 90); }
-        add(t, am(t, 150), "flex", "Free Time", "Friends, projects, or rest."); t = am(t, 150);
-        add(t, am(t, 60), "meal", "Dinner" + pw, "", meals ? { meal: "dinner" } : null); t = am(t, 60);
-        if (faith) add(am(sleep, 10), am(sleep, 20), "prayer", "Evening Prayer", "", { prayer: "evening" });
-        add(am(sleep, 25), am(sleep, 30), "rest", "Lights Out", "");
+        let dStart = "18:00";                                   // dinner sits in the evening, not right after the morning routine
+        if (mins(t, dStart) < 45) dStart = am(t, 45);           // morning ran long → nudge dinner later
+        if (mins(dStart, sleep) < 90) dStart = am(sleep, -90);  // keep a little room before bed
+        if (mins(t, dStart) >= 150) { add(t, am(t, 75), "flex", "Chores & Laundry", "Laundry, tidy up, run errands."); fill(am(t, 75), dStart, "Free Time", "Friends, projects, or rest."); }
+        else fill(t, dStart, "Free Time", "Errands, chores, or rest.");
+        add(dStart, am(dStart, 60), "meal", "Dinner" + pw, "", meals ? { meal: "dinner" } : null);
+        const ev = am(dStart, 60), prayerStart = am(sleep, 10), lightsOut = am(sleep, 25);
+        fill(ev, faith ? prayerStart : lightsOut, "Evening / Personal", "Relax, plan the week, or time together" + pw + "."); // fill after dinner
+        if (faith) add(prayerStart, am(sleep, 20), "prayer", "Evening Prayer", "", { prayer: "evening" });
+        add(lightsOut, am(sleep, 30), "rest", "Lights Out", "");
       }
       B.sort((x, y) => DateU.toMin(x.s) - DateU.toMin(y.s));
       days.push({ dow: dow, name: DAYN[dow] + (gymType ? " — " + wname(gymType) : ""), workoutType: gymType, blocks: B });
@@ -216,6 +228,7 @@ window.Store = (function () {
     if (!state) { state = defaults(); save(); }
     else if (!("onboarded" in state)) state.onboarded = true; // grandfather existing users — never force setup on them
     migrateFoodDb(); // merge new seed foods before the generic key-fill below
+    migrateSchedule(); // rebuild personalized schedules with the gap-free layout (before the key-fill stamps the version)
     const d = defaults();
     for (const k in d) if (!(k in state)) state[k] = d[k];
     // one-time upgrade: older grocery lists predate the dinner-ingredient section
@@ -246,8 +259,28 @@ window.Store = (function () {
     });
     state.profile = p;
     state.schedule = buildSchedule(a);
+    state.scheduleVersion = SCHEDULE_VERSION;
     state.onboarded = true;
     save();
+  }
+  // Rebuild a personalized schedule from the saved profile (same inputs the wizard used).
+  function profileToInputs() {
+    const p = state.profile || {};
+    return {
+      name: p.name, partner: p.partner, eventName: p.eventName, eventDate: p.eventDate,
+      tracks: p.tracks, studyLabel: p.studyLabel, workLabel: p.workLabel,
+      wake: p.wake, sleep: p.sleep, workStart: p.workStart, workEnd: p.workEnd,
+      workDays: p.workDays, gymDays: p.gymDays, gymTime: p.gymTime
+    };
+  }
+  // one-time: rebuild onboarded users' schedules with the improved (gap-free, evening-dinner)
+  // layout. Grandfathered users (e.g. Manny) have no state.schedule, so they're left untouched.
+  function migrateSchedule() {
+    if (state.scheduleVersion === SCHEDULE_VERSION) return;
+    if (state.schedule && state.schedule.length && state.profile && state.profile.wake) {
+      state.schedule = buildSchedule(profileToInputs());
+    }
+    state.scheduleVersion = SCHEDULE_VERSION;
   }
 
   function day(dateISO) {

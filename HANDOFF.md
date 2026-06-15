@@ -1,6 +1,6 @@
 # Manny's Plan — Project Handoff
 
-A consolidated, self-contained summary of this project so a new session (AI or human) can pick up exactly where we left off. Last updated at service-worker cache `manny-plan-v26` (adds **live sync of the wedding list + weekly dinner plan + grocery check-offs** via Firebase — see §5/§9).
+A consolidated, self-contained summary of this project so a new session (AI or human) can pick up exactly where we left off. Last updated at service-worker cache `manny-plan-v27` (live sync of the wedding list + weekly dinner plan + grocery check-offs via Firebase — see §5/§9 — plus a **gap-free personalized-schedule rebuild**, see §6).
 
 ---
 
@@ -23,7 +23,7 @@ A **mobile-first personal life-management web app** for **Manny Diaz** (and now 
 
 1. **The local Desktop folder keeps getting WIPED** (suspected OneDrive "free up space" / cleanup; files vanish mid-session, not in Recycle Bin). **GitHub is the source of truth.** Before any work: check the folder exists; if not, `git clone https://github.com/ediaz94/manny-schedule.git` and re-set git identity. **Commit + push promptly** — never leave significant work uncommitted.
 2. **The Write tool once silently failed to persist 5 large files** despite reporting success. **Verify big/multiple writes landed** (PowerShell `Test-Path` / `Select-String`).
-3. **Bump the service-worker cache version** in `sw.js` (`const CACHE = "manny-plan-vN"`) on EVERY change to app files, AND keep the `ASSETS` precache list in sync (it lists every `js/*.js`). Or phones serve stale cached code. Currently **v26**.
+3. **Bump the service-worker cache version** in `sw.js` (`const CACHE = "manny-plan-vN"`) on EVERY change to app files, AND keep the `ASSETS` precache list in sync (it lists every `js/*.js`). Or phones serve stale cached code. Currently **v27**.
 4. **`preview_screenshot` is unreliable in this environment** (times out even when the page is fine). **Verify via `preview_eval`** (DOM/JS inspection) and live-URL `Invoke-WebRequest` fetches instead.
 5. **Tell the user to fully close & reopen the installed app (twice if needed)** after a deploy — the service worker updates on the second load.
 6. After any change: bump sw → verify on disk → verify in preview via eval → `git add/commit/push` → poll the live URL until the new code is served.
@@ -66,7 +66,8 @@ A **mobile-first personal life-management web app** for **Manny Diaz** (and now 
 
 ## 6. Key conventions & gotchas
 
-- **sw cache:** bump `manny-plan-vN` every change (now v26); also add any new `js/*.js` file to the `ASSETS` precache list in `sw.js`.
+- **sw cache:** bump `manny-plan-vN` every change (now v27); also add any new `js/*.js` file to the `ASSETS` precache list in `sw.js`.
+- **personalized schedules** (`buildSchedule(a)`, onboarded users only — Manny is grandfathered onto `DATA.days`): laid out so the day is **gap-free** — weekday morning routine fills up to the commute, dinner is anchored to the **evening** (weekday ≈ workEnd+30 / after gym; weekend = 18:00 with the afternoon filled by a "Chores & Laundry" + "Free Time" block), and a "Flex / Personal" block fills any stretch up to wind-down (only 30-min after-work/drive-to-gym transitions remain). Versioned via `state.scheduleVersion` vs `SCHEDULE_VERSION` (now 2): on load, `migrateSchedule()` rebuilds an onboarded user's saved `state.schedule` from `profileToInputs()` (the saved wizard answers) when the version is stale — so layout fixes reach existing users on next open WITHOUT re-running the wizard. Bump `SCHEDULE_VERSION` whenever `buildSchedule` changes. Manny (no `state.schedule`) is skipped.
 - **foodDb migration:** `foodSeedVersion` (now 3); `migrateFoodDb()` adds new seed foods by name AND backfills new fields (e.g. carbs/fat/color) onto existing/edited foods without clobbering user edits.
 - **Onboarding gate:** `state.onboarded`; existing users grandfathered to `true` in `load()` so they never see the wizard. `Store.days()` returns `state.schedule || DATA.days` (Manny → default).
 - **Wedding seed = 38 tasks** (ids 0–37). Share-sync ships only diffs + custom tasks; merge keeps "done" on either side, dedupes custom by title, never deletes, idempotent.
