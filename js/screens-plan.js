@@ -467,7 +467,7 @@ window.Screens = window.Screens || {};
     const partner = esc(Store.get().profile.partner || "your partner");
     if (!Sync.enabled()) {
       return '<div class="card2" id="syncCard"><div class="card2-h">Live sync</div>' +
-        '<p class="muted">Keep your wedding to-do list in step with ' + partner + ' automatically. Check something off here and it checks off on their phone within seconds — no more sharing links.</p>' +
+        '<p class="muted">Keep your wedding to-do list <b>and weekly dinner plan</b> in step with ' + partner + ' automatically. Check off a task or pick the week’s dinners here, and it updates on their phone within seconds. (Your food log and calories stay private to you.)</p>' +
         '<button class="btn btn-primary" data-act="startSync">🔗 Turn on live sync</button>' +
         '<p class="muted" style="font-size:12.5px;margin-top:8px">The “Share the list” link still works too, in case sync is ever off.</p>' +
       '</div>';

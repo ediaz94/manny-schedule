@@ -123,7 +123,7 @@ window.App = (function () {
       if (window.Sync && Sync.enabled() && Sync.room() === room) return; // already in this room
       const partner = (Store.get().profile.partner) || "Someone";
       UI.sheet(partner + " invited you to sync 💍",
-        '<p class="found">Join the shared wedding list. Your tasks merge together and stay in step from now on — nothing gets deleted.</p>' +
+        '<p class="found">Join the shared wedding list and dinner plan. Your tasks merge together and your dinners stay in step from now on. Your food log stays private.</p>' +
         '<button class="btn btn-primary big" data-act="joinSync" data-room="' + UI.esc(room) + '">Join the shared list</button>' +
         '<button class="btn btn-ghost big" data-act="closeSheet">Not now</button>');
     } catch (e) {}
@@ -205,7 +205,7 @@ window.Act = (function () {
       if (navigator.share) { navigator.share({ title: "Sync our wedding list", text: "Open this to sync our wedding to-do list with me:", url: url }).catch(function () {}); return; }
       try { if (navigator.clipboard) navigator.clipboard.writeText(url); } catch (e) {}
       UI.sheet("Send " + UI.esc(partner) + " the join link",
-        '<p class="found">Send this link to ' + UI.esc(partner) + '. When they open it and tap <b>Join</b>, your two lists sync live from then on.</p>' +
+        '<p class="found">Send this link to ' + UI.esc(partner) + '. When they open it and tap <b>Join</b>, your wedding tasks and weekly dinner plan sync live from then on.</p>' +
         '<textarea readonly rows="4" class="sharebox" onclick="this.select()">' + UI.esc(url) + '</textarea>' +
         '<p class="muted" style="font-size:12.5px;margin-top:6px">Copied to your clipboard — paste it into a text or email.</p>' +
         '<button class="btn btn-primary big" data-act="closeSheet">Done</button>');

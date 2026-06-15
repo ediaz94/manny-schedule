@@ -98,7 +98,7 @@ window.Store = (function () {
       foodDb: DATA.foods.map((f, i) => Object.assign({ id: i }, f)),
       foodDbVersion: DATA.foodSeedVersion,
       onboarded: false,
-      sync: { on: false, room: "", device: "" }
+      sync: { on: false, room: "", device: "", dinnerAt: 0 }
     };
   }
 
@@ -329,19 +329,35 @@ window.Store = (function () {
 
   function mealLog(dateISO) { const d = dateISO || DateU.today(); if (!state.mealLogs[d]) state.mealLogs[d] = {}; return state.mealLogs[d]; }
   function setMeal(dateISO, type, status) { const m = mealLog(dateISO); if (m[type] === status) delete m[type]; else m[type] = status; save(); }
-  function setDinner(dow, idx) { state.dinnerPlan[dow] = idx; save(); }
+  function setDinner(dow, idx) { state.dinnerPlan[dow] = idx; touchDinner(); save(); syncMeals(); }
   function weekMeals() { return state.weekMeals || (state.weekMeals = defaultWeekMeals()); }
   function toggleWeekMeal(i) {
     if (!state.weekMeals) state.weekMeals = defaultWeekMeals().slice();
     const k = state.weekMeals.indexOf(i);
     if (k >= 0) state.weekMeals.splice(k, 1); else state.weekMeals.push(i);
-    save();
+    touchDinner(); save(); syncMeals();
   }
   function setWeekMeals(indices) {
     state.weekMeals = indices.slice();
     state.dinnerPlan = distributePlan(indices);   // keep "tonight's dinner" working
     state.grocery = buildGroceryFromMeals(indices); // fresh grocery list for the week
+    touchDinner(); save(); syncMeals();
+  }
+  // ---- dinner-plan sync (last-write-wins: the most recently edited weekly plan wins) ----
+  function dinnerAt() { return (state.sync && state.sync.dinnerAt) || 0; }
+  function touchDinner() { if (!state.sync) state.sync = { on: false, room: "", device: "", dinnerAt: 0 }; state.sync.dinnerAt = Date.now(); }
+  function syncMeals() { if (window.Sync && Sync.enabled()) Sync.pushSoon(); }
+  function dinnerSyncPayload() { return { weekMeals: state.weekMeals || defaultWeekMeals(), dinnerPlan: state.dinnerPlan || {}, at: dinnerAt() }; }
+  function applyDinnerSync(d) {
+    if (!d || !(d.at > dinnerAt())) return false;        // older or same — keep ours
+    const weekChanged = JSON.stringify(d.weekMeals || []) !== JSON.stringify(state.weekMeals || []);
+    if (d.weekMeals) state.weekMeals = d.weekMeals.slice();
+    if (d.dinnerPlan) state.dinnerPlan = Object.assign({}, d.dinnerPlan);
+    if (weekChanged) state.grocery = buildGroceryFromMeals(state.weekMeals); // mirror setWeekMeals: grocery follows the plan
+    if (!state.sync) state.sync = { on: false, room: "", device: "", dinnerAt: 0 };
+    state.sync.dinnerAt = d.at;
     save();
+    return true;
   }
   function dayFoods(dateISO) { const dl = day(dateISO); if (!dl.foods) dl.foods = []; return dl.foods; }
   function addFood(dateISO, f) { dayFoods(dateISO).push(Object.assign({ id: Date.now().toString(36) }, f)); save(); }
@@ -458,7 +474,7 @@ window.Store = (function () {
     load, save, get, days, tracks, completeSetup, day, toggleBlock, skipBlock, addWater, setPrayer,
     addWeight, latestWeight, uid, saveWorkout, lastWorkout, lastSet,
     getDraft, setDraftSet, clearDraft,
-    mealLog, setMeal, setDinner, weekMeals, setWeekMeals, toggleWeekMeal, dayFoods, addFood, delFood, dayNutrition,
+    mealLog, setMeal, setDinner, weekMeals, setWeekMeals, toggleWeekMeal, dinnerSyncPayload, applyDinnerSync, dayFoods, addFood, delFood, dayNutrition,
     foodDb, addFoodDb, setFoodDb, delFoodDb, resetFoodDb, toggleGrocery, resetGrocery,
     addFintech, toggleMilestone, fintechHoursWeek,
     setTaskStatus, addTask, setTask, deleteTask, addPerson, weddingSyncPayload, applyWeddingSync, saveVendor, saveMemoriam,

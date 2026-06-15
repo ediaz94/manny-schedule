@@ -91,16 +91,20 @@ window.Sync = (function () {
 
   function onErr() { status = "error"; notify(); }
 
+  // combined snapshot of everything we sync — used as the echo/convergence guard
+  function snapshot() { return JSON.stringify({ w: Store.weddingSyncPayload(), d: Store.dinnerSyncPayload() }); }
+
   function onRemote(snap) {
     const val = (snap && snap.val()) || {};
     const me = deviceId();
-    const before = JSON.stringify(Store.weddingSyncPayload());
+    const before = snapshot();
     Object.keys(val).forEach((dev) => {
       if (dev === me) return;            // skip our own echo
       const node = val[dev];
-      if (node && node.p) Store.applyWeddingSync(node.p);
+      if (node && node.p) Store.applyWeddingSync(node.p); // wedding tasks (accumulate-merge)
+      if (node && node.d) Store.applyDinnerSync(node.d);  // dinner plan (last-write-wins)
     });
-    const after = JSON.stringify(Store.weddingSyncPayload());
+    const after = snapshot();
     lastSync = Date.now(); status = "live"; notify();
     if (before !== after) {              // we actually learned something new
       if (window.App && App.render) App.render();
@@ -111,7 +115,7 @@ window.Sync = (function () {
   async function pushNow() {
     if (!db || !fns || !enabled()) return;
     try {
-      const node = { p: Store.weddingSyncPayload(), t: Date.now(), who: (Store.get().profile.name || "") };
+      const node = { p: Store.weddingSyncPayload(), d: Store.dinnerSyncPayload(), t: Date.now(), who: (Store.get().profile.name || "") };
       await fns.set(fns.ref(db, "rooms/" + cfg().room + "/devices/" + deviceId()), node);
       lastSync = Date.now(); status = "live"; notify();
     } catch (e) { status = "error"; notify(); }
@@ -128,18 +132,20 @@ window.Sync = (function () {
   // turn sync on: mint a room if we don't have one, then connect
   function turnOn() {
     const s = Store.get();
-    if (!s.sync) s.sync = { on: false, room: "", device: "" };
+    if (!s.sync) s.sync = { on: false, room: "", device: "", dinnerAt: 0 };
     if (!s.sync.room) s.sync.room = newRoom();
-    s.sync.on = true; Store.save();
+    s.sync.on = true;
+    s.sync.dinnerAt = Date.now(); // our current dinner plan becomes the shared starting point
+    Store.save();
     deviceId(); start();
     return s.sync.room;
   }
 
-  // join an existing room from a shared link
+  // join an existing room from a shared link (we adopt the inviter's plan)
   function join(room) {
     if (!room || room.length < 20) return false;
     const s = Store.get();
-    if (!s.sync) s.sync = { on: false, room: "", device: "" };
+    if (!s.sync) s.sync = { on: false, room: "", device: "", dinnerAt: 0 };
     s.sync.room = room; s.sync.on = true; Store.save();
     deviceId(); start();
     return true;
